@@ -15,17 +15,28 @@ const int FRAME_HEIGHT = 128;
 const int ANIMATION_FRAMES = 4;
 const int ANIMATION_SPEED = 100;//milisecond;
 
+//background
+enum BackgroundLayers {
+    SKY,
+    LIGHT,
+    MIDDLE_LAYER,
+    DOWN_LAYER,
+    TOP_LAYER,
+    LAYER_COUNT
+};
 
 // Global Variables
 SDL_Window* gWindow = nullptr;
 SDL_Renderer* gRenderer = nullptr;
 SDL_Texture* gPlayerTexture = nullptr;
-
+SDL_Texture* bgTextures[LAYER_COUNT];
 bool isRunning = true;
 
 // Vị trí người chơi
-int playerX = SCREEN_WIDTH/2 - PLAYER_SIZE/2;
-int playerY = SCREEN_HEIGHT/2 - PLAYER_SIZE/2;
+//int playerX = SCREEN_WIDTH/2 - PLAYER_SIZE/2;
+//int playerY = SCREEN_HEIGHT/2 - PLAYER_SIZE/2;
+int playerX = 0;
+int playerY = 445;
 SDL_Rect gSpriteClips[ANIMATION_FRAMES];
 int currentFrame = 0;
 Uint32 lastFrameTime = 0;
@@ -54,17 +65,17 @@ bool init() {
                               SDL_WINDOW_SHOWN);
     if (!gWindow) {
         cerr << "Window could not be created! Error: " << SDL_GetError() << endl;
-        return false;
+        return 0;
     }
 
     gRenderer = SDL_CreateRenderer(gWindow, -1, SDL_RENDERER_ACCELERATED);
     if (!gRenderer) {
         cerr << "Renderer could not be created! Error: " << SDL_GetError() << endl;
-        return false;
+        return 0;
     }
     gPlayerTexture = loadTexture("assets/MAIN_knight/Spritesheet 128/Knight_1/Idle.png");
     if (!gPlayerTexture) {
-        return false;
+        return 0;
     }
 
     //set frame
@@ -72,7 +83,18 @@ bool init() {
         gSpriteClips[i] = { i * (FRAME_WIDTH), 0, FRAME_WIDTH, FRAME_HEIGHT };
     }
 
-    return true;
+    //load texture
+    bgTextures[SKY] = loadTexture("assets/Background/Sky.png");
+    bgTextures[LIGHT] = loadTexture("assets/Background/Light.png");
+    bgTextures[MIDDLE_LAYER] = loadTexture("assets/Background/MiddleLayer.png");
+    bgTextures[DOWN_LAYER] = loadTexture("assets/Background/DownLayer.png");
+    bgTextures[TOP_LAYER] = loadTexture("assets/Background/TopLayer.png");
+    FOR(i, 0, LAYER_COUNT - 1){
+        if(!bgTextures[i]){
+            return 0;
+        }
+    }
+    return 1;
 }
 
 // Xử lý input
@@ -93,11 +115,15 @@ void handleInput() {
     }
     // Xử lý di chuyển liên tục
     const Uint8* keystates = SDL_GetKeyboardState(NULL);
-    if (keystates[SDL_SCANCODE_W]) playerY -= 5;
-    if (keystates[SDL_SCANCODE_S]) playerY += 5;
+//    if (keystates[SDL_SCANCODE_W]) playerY -= 5;
+//    if (keystates[SDL_SCANCODE_S]) playerY += 5;
     if (keystates[SDL_SCANCODE_A]) playerX -= 5;
-    if (keystates[SDL_SCANCODE_D]) playerX += 5;
+    if (keystates[SDL_SCANCODE_D]){
+            playerX += 5;
+    }
+//        cerr << playerX << " " << playerY << '\n';
 }
+
 
 // Cập nhật game state
 void update() {
@@ -125,6 +151,13 @@ void render() {
     SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, 255);
     SDL_RenderClear(gRenderer);
 
+    //render background
+    SDL_RenderCopy(gRenderer, bgTextures[SKY], NULL, NULL);//sky
+    SDL_RenderCopy(gRenderer, bgTextures[LIGHT], NULL, NULL);//light
+    SDL_RenderCopy(gRenderer, bgTextures[MIDDLE_LAYER], NULL, NULL);//middle layer
+    SDL_RenderCopy(gRenderer, bgTextures[DOWN_LAYER], NULL, NULL);//down layer
+    SDL_RenderCopy(gRenderer, bgTextures[TOP_LAYER], NULL, NULL);//top layer
+
     SDL_Rect* currentClips = &gSpriteClips[currentFrame];
     SDL_Rect renderQuad = { playerX, playerY, FRAME_WIDTH, FRAME_HEIGHT };
     SDL_RenderCopy(gRenderer, gPlayerTexture, currentClips, &renderQuad);
@@ -138,6 +171,10 @@ void close() {
     SDL_DestroyTexture(gPlayerTexture);
     gPlayerTexture = nullptr;
 
+    FOR(i, 0, LAYER_COUNT - 1) {
+        SDL_DestroyTexture(bgTextures[i]);
+        bgTextures[i] = nullptr;
+    }
     SDL_DestroyRenderer(gRenderer);
     SDL_DestroyWindow(gWindow);
     SDL_Quit();
