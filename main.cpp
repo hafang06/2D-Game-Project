@@ -1,24 +1,48 @@
 #include <SDL.h>
-#include <iostream>
+#include<SDL_image.h>
+#include <bits/stdc++.h>
 
-// Các hằng số
-const int SCREEN_WIDTH = 800;
-const int SCREEN_HEIGHT = 600;
-const int PLAYER_SIZE = 40;
+#define FOR(i, a, b) for(int i = (a); i <= (b); i++)
+#define FORD(i, a, b) for(int i = (a); i >= (b); i--)
 
-// Biến toàn cục
+using namespace std;
+
+const int SCREEN_WIDTH = 1280;
+const int SCREEN_HEIGHT =720;
+const int PLAYER_SIZE = 128;
+const int FRAME_WIDTH = 128;
+const int FRAME_HEIGHT = 128;
+const int ANIMATION_FRAMES = 4;
+const int ANIMATION_SPEED = 100;//milisecond;
+
+
+// Global Variables
 SDL_Window* gWindow = nullptr;
 SDL_Renderer* gRenderer = nullptr;
+SDL_Texture* gPlayerTexture = nullptr;
+
 bool isRunning = true;
 
 // Vị trí người chơi
 int playerX = SCREEN_WIDTH/2 - PLAYER_SIZE/2;
 int playerY = SCREEN_HEIGHT/2 - PLAYER_SIZE/2;
+SDL_Rect gSpriteClips[ANIMATION_FRAMES];
+int currentFrame = 0;
+Uint32 lastFrameTime = 0;
 
-// Khởi tạo SDL và tạo cửa sổ
+
+SDL_Texture* loadTexture(const string &path);
+
 bool init() {
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-        std::cerr << "SDL could not initialize! Error: " << SDL_GetError() << std::endl;
+        cerr << "SDL could not initialize! Error: " << SDL_GetError() << endl;
+        return false;
+    }
+
+    //init sdl_image support png
+    int imgFlags = IMG_INIT_PNG;
+    if (!(IMG_Init(imgFlags) & imgFlags)) {
+        cerr << "SDL_image could not initialize! Error: " << IMG_GetError() << endl;
         return false;
     }
 
@@ -29,14 +53,23 @@ bool init() {
                               SCREEN_HEIGHT,
                               SDL_WINDOW_SHOWN);
     if (!gWindow) {
-        std::cerr << "Window could not be created! Error: " << SDL_GetError() << std::endl;
+        cerr << "Window could not be created! Error: " << SDL_GetError() << endl;
         return false;
     }
 
     gRenderer = SDL_CreateRenderer(gWindow, -1, SDL_RENDERER_ACCELERATED);
     if (!gRenderer) {
-        std::cerr << "Renderer could not be created! Error: " << SDL_GetError() << std::endl;
+        cerr << "Renderer could not be created! Error: " << SDL_GetError() << endl;
         return false;
+    }
+    gPlayerTexture = loadTexture("assets/MAIN_knight/Spritesheet 128/Knight_1/Idle.png");
+    if (!gPlayerTexture) {
+        return false;
+    }
+
+    //set frame
+    for (int i = 0; i < ANIMATION_FRAMES; ++i) {
+        gSpriteClips[i] = { i * (FRAME_WIDTH), 0, FRAME_WIDTH, FRAME_HEIGHT };
     }
 
     return true;
@@ -45,7 +78,7 @@ bool init() {
 // Xử lý input
 void handleInput() {
     SDL_Event e;
-    while (SDL_PollEvent(&e) {
+    while (SDL_PollEvent(&e)) {
         if (e.type == SDL_QUIT) {
             isRunning = false;
         }
@@ -58,7 +91,6 @@ void handleInput() {
             }
         }
     }
-
     // Xử lý di chuyển liên tục
     const Uint8* keystates = SDL_GetKeyboardState(NULL);
     if (keystates[SDL_SCANCODE_W]) playerY -= 5;
@@ -69,11 +101,22 @@ void handleInput() {
 
 // Cập nhật game state
 void update() {
-    // Giới hạn di chuyển trong màn hình
-    if (playerX < 0) playerX = 0;
-    if (playerX > SCREEN_WIDTH - PLAYER_SIZE) playerX = SCREEN_WIDTH - PLAYER_SIZE;
-    if (playerY < 0) playerY = 0;
-    if (playerY > SCREEN_HEIGHT - PLAYER_SIZE) playerY = SCREEN_HEIGHT - PLAYER_SIZE;
+    Uint32 currentTime = SDL_GetTicks();
+    if (currentTime > lastFrameTime + ANIMATION_SPEED) {
+        currentFrame = (currentFrame + 1) % ANIMATION_FRAMES;
+        lastFrameTime = currentTime;
+    }
+
+    playerX = max(0, min(playerX, SCREEN_WIDTH - FRAME_WIDTH));
+    playerY = max(0, min(playerY, SCREEN_HEIGHT - FRAME_HEIGHT));
+}
+
+SDL_Texture* loadTexture(const string &path) {
+    SDL_Texture* newTexture = IMG_LoadTexture(gRenderer, path.c_str());
+    if (!newTexture) {
+        cerr << "Failed to load texture! Error: " << IMG_GetError() << endl;
+    }
+    return newTexture;
 }
 
 // Vẽ các đối tượng
@@ -82,10 +125,9 @@ void render() {
     SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, 255);
     SDL_RenderClear(gRenderer);
 
-    // Vẽ player (tạm thời dùng hình vuông)
-    SDL_SetRenderDrawColor(gRenderer, 0, 255, 0, 255);
-    SDL_Rect playerRect = { playerX, playerY, PLAYER_SIZE, PLAYER_SIZE };
-    SDL_RenderFillRect(gRenderer, &playerRect);
+    SDL_Rect* currentClips = &gSpriteClips[currentFrame];
+    SDL_Rect renderQuad = { playerX, playerY, FRAME_WIDTH, FRAME_HEIGHT };
+    SDL_RenderCopy(gRenderer, gPlayerTexture, currentClips, &renderQuad);
 
     // Cập nhật màn hình
     SDL_RenderPresent(gRenderer);
@@ -93,14 +135,18 @@ void render() {
 
 // Dọn dẹp tài nguyên
 void close() {
+    SDL_DestroyTexture(gPlayerTexture);
+    gPlayerTexture = nullptr;
+
     SDL_DestroyRenderer(gRenderer);
     SDL_DestroyWindow(gWindow);
     SDL_Quit();
+    IMG_Quit();
 }
 
 int main(int argc, char* args[]) {
     if (!init()) {
-        std::cerr << "Failed to initialize!" << std::endl;
+        cerr << "Failed to initialize!" << endl;
         return -1;
     }
 
