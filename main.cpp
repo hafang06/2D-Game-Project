@@ -88,12 +88,13 @@ public:
     float baseSpeed = 10;
     float runSpeed = 13;
     bool isRunning = 0;//always walk till pressing shift
+    bool inOtherState = 0;
 
-    Player(int x, int y, SDL_Texture* idleTex, SDL_Texture* runTex, SDL_Texture* walkTex): Entity(x, y){
+    Player(int x, int y, SDL_Texture* idleTex, SDL_Texture* runTex, SDL_Texture* walkTex, SDL_Texture* attack1Tex): Entity(x, y){
         animations["idle"] = Animation(idleTex, 66, FRAME_HEIGHT, ANIMATION_FRAMES, ANIMATION_SPEED);
         animations["run"] = Animation(runTex, 98, FRAME_HEIGHT, 7, ANIMATION_SPEED);
         animations["walk"] = Animation(walkTex, 65, FRAME_HEIGHT, 8, ANIMATION_SPEED);
-        animations["attack1"] = Animation(nullptr, FRAME_WIDTH, FRAME_HEIGHT, 5, 50, 0);
+        animations["attack1"] = Animation(attack1Tex, 96, FRAME_HEIGHT, 5, 70);
         animations["attack2"] = Animation(nullptr, FRAME_WIDTH, FRAME_HEIGHT, 4, 50, 0);
         animations["attack3"] = Animation(nullptr, FRAME_WIDTH, FRAME_HEIGHT, 4, 50, 0);
         animations["defend"] = Animation(nullptr, FRAME_WIDTH, FRAME_HEIGHT, 5, 50, 0);
@@ -111,7 +112,7 @@ public:
         if (velocity.x != 0 || velocity.y != 0) {
             if(isRunning) setAnimation("run");
             else setAnimation("walk");
-        }else{
+        }else if(!inOtherState){
             setAnimation("idle");
         }
 
@@ -145,10 +146,12 @@ public:
     }
 
     void attack() {
-        setAnimation("attack");
+        inOtherState = 1;
+        setAnimation("attack1");
     }
 
     void defend(){
+        inOtherState = 1;
         setAnimation("defend");
     }
 
@@ -223,7 +226,7 @@ bool init() {
         cerr << "Failed to load player texture\n";
         return 0;
     }
-    player = new Player(playerX, playerY, idletex, runtex, walktex);
+    player = new Player(playerX, playerY, idletex, runtex, walktex, attack1tex);
 
 //    //set frame
 //    for (int i = 0; i < ANIMATION_FRAMES; ++i) {
@@ -269,6 +272,7 @@ void handleInput() {
     if(player->isRunning) currentSpeed = player->runSpeed;
     else currentSpeed = player->baseSpeed;
 
+    player->inOtherState = 0;
     player->velocity.x = 0;
     player->velocity.y = 0;
     if (keystates[SDL_SCANCODE_A]) {
