@@ -23,7 +23,7 @@ public:
     Animation(SDL_Texture* tex, int frameW, int frameH, int totalFrames, int animSpeed, bool loop = 1): //texture, width, height, is in loop or not?
         texture(tex), frameWidth(frameW), frameHeight(frameH), totalFrames(totalFrames), speed(animSpeed), isLooping(loop){
             FOR(i, 0, totalFrames - 1){
-                frames.pb({i * frameWidth, 0, frameWidth, frameHeight});
+                frames.pb({i * 128, 0, frameWidth, frameHeight});
             }
         }
     void update(){
@@ -90,9 +90,9 @@ public:
     bool isRunning = 0;//always walk till pressing shift
 
     Player(int x, int y, SDL_Texture* idleTex, SDL_Texture* runTex, SDL_Texture* walkTex): Entity(x, y){
-        animations["idle"] = Animation(idleTex, FRAME_WIDTH, FRAME_HEIGHT, ANIMATION_FRAMES, ANIMATION_SPEED);
-        animations["run"] = Animation(runTex, FRAME_WIDTH, FRAME_HEIGHT, 7, ANIMATION_SPEED);
-        animations["walk"] = Animation(walkTex, FRAME_WIDTH, FRAME_HEIGHT, 8, ANIMATION_SPEED);
+        animations["idle"] = Animation(idleTex, 66, FRAME_HEIGHT, ANIMATION_FRAMES, ANIMATION_SPEED);
+        animations["run"] = Animation(runTex, 98, FRAME_HEIGHT, 7, ANIMATION_SPEED);
+        animations["walk"] = Animation(walkTex, 65, FRAME_HEIGHT, 8, ANIMATION_SPEED);
         animations["attack1"] = Animation(nullptr, FRAME_WIDTH, FRAME_HEIGHT, 5, 50, 0);
         animations["attack2"] = Animation(nullptr, FRAME_WIDTH, FRAME_HEIGHT, 4, 50, 0);
         animations["attack3"] = Animation(nullptr, FRAME_WIDTH, FRAME_HEIGHT, 4, 50, 0);
@@ -116,16 +116,20 @@ public:
         }
 
         animations[currentAnim].update();
-        position.x = max(0, min(position.x, SCREEN_WIDTH - 128));
-        position.y = max(0, min(position.y, SCREEN_HEIGHT - 128));
+        position.x = max(0, min(position.x, SCREEN_WIDTH - animations[currentAnim].frameWidth));
+        position.y = max(0, min(position.y, SCREEN_HEIGHT - animations[currentAnim].frameHeight));
 
     }
     void render(SDL_Renderer* renderer) override {
         Animation& anim = animations[currentAnim];
-        SDL_Rect destRect = {position.x, position.y, anim.frameWidth, anim.frameHeight};
         //flip the texture
         SDL_RendererFlip flip = flipHorizontal ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-        SDL_RenderCopyEx(renderer, anim.texture, &anim.frames[anim.currentFrame], &destRect,0.0,nullptr,flip);
+        SDL_Rect destRect = {position.x, position.y, anim.frameWidth, anim.frameHeight};
+        SDL_Point pivot = {0, 0};
+//        if (flip) {
+//            destRect.x -= anim.frameWidth;
+//        }
+        SDL_RenderCopyEx(renderer, anim.texture, &anim.frames[anim.currentFrame], &destRect,0.0,&pivot,flip);
     }
 
     void setAnimation(const string& animName) {
@@ -331,6 +335,7 @@ void gameloop() {
 
         SDL_RenderPresent(gRenderer);
 
+        cerr << (player->position.x) << " " << (player->position.y) << '\n';
         SDL_Delay(16);
     }
 }
