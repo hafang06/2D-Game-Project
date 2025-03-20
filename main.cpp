@@ -157,6 +157,102 @@ public:
 
 };
 
+enum class EnemyState {
+    WANDERING,
+    CHASING,
+    ATTACKING
+};
+
+class Enemy : public Entity {
+public:
+    enum class Type { MINOTAUR, SKELETON, WEREWOLF, BLUESLIME, GREENSLIME};
+
+    Enemy(int x, int y, Type type, Player* target) : Entity(x, y), enemyType(type), player(target) {
+        // Khởi tạo animation theo loại quái
+        detectionR = 300.0;
+        attackR = 50.0;
+        wanderSpeed = 100.0;
+        chaseSpeed = 200.0;
+        state = EnemyState::WANDERING;
+        stateTimer = 0.0f;
+        switch(type) {
+            case Type::MINOTAUR:
+                animations["idle"] = Animation(loadTexture("assets/CREP_Minotaur/Minotaur_1/Idle.png"), 115, 128, 10, 100);
+                animations["attack"] = Animation(loadTexture("assets/CREP_Minotaur/Minotaur_1/Attack.png"), 128, 128, 5, 70);
+                animations["walk"] = Animation(loadTexture("assets/CREP_Minotaur/Minotaur_1/Walk.png"), 128, 128, 12, 100);
+                animations["dead"] = Animation(loadTexture("assets/CREP_Minotaur/Minotaur_1/Dead.png"), 128, 128, 5, 100);
+                animations["hurt"] = Animation(loadTexture("assets/CREP_Minotaur/Minotaur_1/Hurt.png"), 128, 128, 3, 100);
+                break;
+            case Type::SKELETON:
+                animations["idle"] = Animation(loadTexture("assets/CREP_Skeleton/Skeleton_Spearman/Idle.png"), 128, 128, 7, 100);
+                animations["attack"] = Animation(loadTexture("assets/CREP_Skeleton/Skeleton_Spearman/Attack.png"), 128, 128, 4, 70);
+                animations["walk"] = Animation(loadTexture("assets/CREP_Skeleton/Skeleton_Spearman/Walk.png"), 128, 128, 7, 100);
+                animations["dead"] = Animation(loadTexture("assets/CREP_Skeleton/Skeleton_Spearman/Dead.png"), 128, 128, 5, 100);
+                animations["hurt"] = Animation(loadTexture("assets/CREP_Skeleton/Skeleton_Spearman/Hurt.png"), 128, 128, 3, 100);
+                break;
+            case Type::WEREWOLF:
+                animations["idle"] = Animation(loadTexture("assets/CREP_Werewolf/White_Werewolf/Idle.png"), 128, 128, 8, 100);
+                animations["attack"] = Animation(loadTexture("assets/CREP_Werewolf/White_Werewolf/Attack.png"), 128, 128, 6, 70);
+                animations["walk"] = Animation(loadTexture("assets/CREP_Werewolf/White_Werewolf/Walk.png"), 128, 128, 11, 100);
+                animations["run"] = Animation(loadTexture("assets/CREP_Werewolf/White_Werewolf/Run.png"), 128, 128, 9, 100);
+//                animations["runAttack"] = Animation(loadTexture("assets/CREP_Werewolf/White_Werewolf/Run+Attack.png"), 128, 128, 7, 100);
+                animations["dead"] = Animation(loadTexture("assets/CREP_Werewolf/White_Werewolf/Dead.png"), 128, 128, 2, 100);
+                animations["hurt"] = Animation(loadTexture("assets/CREP_Werewolf/White_Werewolf/Hurt.png"), 128, 128, 2, 100);
+                break;
+            case Type::BLUESLIME:
+                animations["idle"] = Animation(loadTexture("assets/CREP_Slime/Blue_Slime/Idle.png"), 128, 128, 8, 100);
+                animations["attack"] = Animation(loadTexture("assets/CREP_Slime/Blue_Slime/Attack.png"), 128, 128, 4, 70);
+                animations["walk"] = Animation(loadTexture("assets/CREP_Slime/Blue_Slime/Walk.png"), 128, 128, 8, 100);
+                animations["run"] = Animation(loadTexture("assets/CREP_Slime/Blue_Slime/Run.png"), 128, 128, 7, 100);
+                animations["dead"] = Animation(loadTexture("assets/CREP_Slime/Blue_Slime/Dead.png"), 128, 128, 3, 100);
+                animations["hurt"] = Animation(loadTexture("assets/CREP_Slime/Blue_Slime/Hurt.png"), 128, 128, 6, 100);
+                break;
+            case Type::GREENSLIME:
+                animations["idle"] = Animation(loadTexture("assets/CREP_Slime/Green_Slime/Idle.png"), 128, 128, 8, 100);
+                animations["attack"] = Animation(loadTexture("assets/CREP_Slime/Green_Slime/Attack.png"), 128, 128, 4, 70);
+                animations["walk"] = Animation(loadTexture("assets/CREP_Slime/Green_Slime/Walk.png"), 128, 128, 8, 100);
+                animations["run"] = Animation(loadTexture("assets/CREP_Slime/Green_Slime/Run.png"), 128, 128, 7, 100);
+                animations["dead"] = Animation(loadTexture("assets/CREP_Slime/Green_Slime/Dead.png"), 128, 128, 3, 100);
+                animations["hurt"] = Animation(loadTexture("assets/CREP_Slime/Green_Slime/Hurt.png"), 128, 128, 6, 100);
+                break;
+        }
+    }
+
+    void update(float deltaTime) override {
+        // AI đơn giản
+        // ... (thêm logic di chuyển của quái)
+
+        animations[currentAnim].update();
+    }
+
+    void render(SDL_Renderer* renderer) override {
+        Animation& anim = animations[currentAnim];
+        //flip the texture
+        SDL_RendererFlip flip = flipHorizontal ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
+        SDL_Rect destRect = {position.x, position.y, anim.frameWidth, anim.frameHeight};
+        SDL_Point pivot = {0, 0};
+//        if (flip) {
+//            destRect.x -= anim.frameWidth;
+//        }
+        SDL_RenderCopyEx(renderer, anim.texture, &anim.frames[anim.currentFrame], &destRect,0.0,&pivot,flip);
+    }
+
+private:
+    Type enemyType;
+
+    EnemyState state;
+    Player* player;
+    float detectionR;
+    float attackR;
+    float wanderSpeed;
+    float chaseSpeed;
+    float stateTimer;
+    float attackTimer = 0.0f;
+    float attackCooldown = 1.5f;
+    float attackDamage = 10.0f;
+    float distanceToPlayer = 0.0f;
+};
+
 //background
 enum BackgroundLayers {
     SKY,
