@@ -15,6 +15,7 @@ const int FRAME_HEIGHT = 128;
 const int ANIMATION_FRAMES = 4;
 const int ANIMATION_SPEED = 100;//milisecond;
 const int FRAME_RATE = 60;
+SDL_Texture* loadTexture(const string &path);
 
 //animation
 class Animation{
@@ -155,6 +156,12 @@ public:
         setAnimation("defend");
     }
 
+    void takeDamage(float damage) {
+        health -= damage;
+        if(health < 0) health = 0;
+    }
+    float health = 100.0;
+
 };
 
 enum class EnemyState {
@@ -169,60 +176,87 @@ public:
 
     Enemy(int x, int y, Type type, Player* target) : Entity(x, y), enemyType(type), player(target) {
         // Khởi tạo animation theo loại quái
-        detectionR = 300.0;
+        detectionR = 250.0;
         attackR = 50.0;
         wanderSpeed = 100.0;
         chaseSpeed = 200.0;
         state = EnemyState::WANDERING;
-        stateTimer = 0.0f;
+        stateTimer = 0.0;
         switch(type) {
             case Type::MINOTAUR:
                 animations["idle"] = Animation(loadTexture("assets/CREP_Minotaur/Minotaur_1/Idle.png"), 115, 128, 10, 100);
-                animations["attack"] = Animation(loadTexture("assets/CREP_Minotaur/Minotaur_1/Attack.png"), 128, 128, 5, 70);
+                animations["attack"] = Animation(loadTexture("assets/CREP_Minotaur/Minotaur_1/Attack.png"), 128, 128, 5, 200);
                 animations["walk"] = Animation(loadTexture("assets/CREP_Minotaur/Minotaur_1/Walk.png"), 128, 128, 12, 100);
                 animations["dead"] = Animation(loadTexture("assets/CREP_Minotaur/Minotaur_1/Dead.png"), 128, 128, 5, 100);
                 animations["hurt"] = Animation(loadTexture("assets/CREP_Minotaur/Minotaur_1/Hurt.png"), 128, 128, 3, 100);
                 break;
             case Type::SKELETON:
-                animations["idle"] = Animation(loadTexture("assets/CREP_Skeleton/Skeleton_Spearman/Idle.png"), 128, 128, 7, 100);
-                animations["attack"] = Animation(loadTexture("assets/CREP_Skeleton/Skeleton_Spearman/Attack.png"), 128, 128, 4, 70);
+                animations["idle"] = Animation(loadTexture("assets/CREP_Skeleton/Skeleton_Spearman/Idle.png"), 128, 128, 7, 150);
+                animations["attack"] = Animation(loadTexture("assets/CREP_Skeleton/Skeleton_Spearman/Attack.png"), 128, 128, 4, 200);
                 animations["walk"] = Animation(loadTexture("assets/CREP_Skeleton/Skeleton_Spearman/Walk.png"), 128, 128, 7, 100);
                 animations["dead"] = Animation(loadTexture("assets/CREP_Skeleton/Skeleton_Spearman/Dead.png"), 128, 128, 5, 100);
                 animations["hurt"] = Animation(loadTexture("assets/CREP_Skeleton/Skeleton_Spearman/Hurt.png"), 128, 128, 3, 100);
                 break;
             case Type::WEREWOLF:
                 animations["idle"] = Animation(loadTexture("assets/CREP_Werewolf/White_Werewolf/Idle.png"), 128, 128, 8, 100);
-                animations["attack"] = Animation(loadTexture("assets/CREP_Werewolf/White_Werewolf/Attack.png"), 128, 128, 6, 70);
+                animations["attack"] = Animation(loadTexture("assets/CREP_Werewolf/White_Werewolf/Attack.png"), 128, 128, 6, 200);
                 animations["walk"] = Animation(loadTexture("assets/CREP_Werewolf/White_Werewolf/Walk.png"), 128, 128, 11, 100);
-                animations["run"] = Animation(loadTexture("assets/CREP_Werewolf/White_Werewolf/Run.png"), 128, 128, 9, 100);
+//                animations["run"] = Animation(loadTexture("assets/CREP_Werewolf/White_Werewolf/Run.png"), 128, 128, 9, 100);
 //                animations["runAttack"] = Animation(loadTexture("assets/CREP_Werewolf/White_Werewolf/Run+Attack.png"), 128, 128, 7, 100);
                 animations["dead"] = Animation(loadTexture("assets/CREP_Werewolf/White_Werewolf/Dead.png"), 128, 128, 2, 100);
                 animations["hurt"] = Animation(loadTexture("assets/CREP_Werewolf/White_Werewolf/Hurt.png"), 128, 128, 2, 100);
                 break;
             case Type::BLUESLIME:
                 animations["idle"] = Animation(loadTexture("assets/CREP_Slime/Blue_Slime/Idle.png"), 128, 128, 8, 100);
-                animations["attack"] = Animation(loadTexture("assets/CREP_Slime/Blue_Slime/Attack.png"), 128, 128, 4, 70);
+                animations["attack"] = Animation(loadTexture("assets/CREP_Slime/Blue_Slime/Attack.png"), 128, 128, 4, 200);
                 animations["walk"] = Animation(loadTexture("assets/CREP_Slime/Blue_Slime/Walk.png"), 128, 128, 8, 100);
-                animations["run"] = Animation(loadTexture("assets/CREP_Slime/Blue_Slime/Run.png"), 128, 128, 7, 100);
+//                animations["run"] = Animation(loadTexture("assets/CREP_Slime/Blue_Slime/Run.png"), 128, 128, 7, 100);
                 animations["dead"] = Animation(loadTexture("assets/CREP_Slime/Blue_Slime/Dead.png"), 128, 128, 3, 100);
                 animations["hurt"] = Animation(loadTexture("assets/CREP_Slime/Blue_Slime/Hurt.png"), 128, 128, 6, 100);
                 break;
             case Type::GREENSLIME:
                 animations["idle"] = Animation(loadTexture("assets/CREP_Slime/Green_Slime/Idle.png"), 128, 128, 8, 100);
-                animations["attack"] = Animation(loadTexture("assets/CREP_Slime/Green_Slime/Attack.png"), 128, 128, 4, 70);
+                animations["attack"] = Animation(loadTexture("assets/CREP_Slime/Green_Slime/Attack.png"), 128, 128, 4, 200);
                 animations["walk"] = Animation(loadTexture("assets/CREP_Slime/Green_Slime/Walk.png"), 128, 128, 8, 100);
-                animations["run"] = Animation(loadTexture("assets/CREP_Slime/Green_Slime/Run.png"), 128, 128, 7, 100);
+//                animations["run"] = Animation(loadTexture("assets/CREP_Slime/Green_Slime/Run.png"), 128, 128, 7, 100);
                 animations["dead"] = Animation(loadTexture("assets/CREP_Slime/Green_Slime/Dead.png"), 128, 128, 3, 100);
                 animations["hurt"] = Animation(loadTexture("assets/CREP_Slime/Green_Slime/Hurt.png"), 128, 128, 6, 100);
                 break;
         }
     }
-
+    void setAnimation(const string& animName) {
+        if (currentAnim != animName) {
+            currentAnim = animName;
+            animations[animName].reset();
+            animations[animName].play();
+        }
+    }
     void update(float deltaTime) override {
-        // AI đơn giản
-        // ... (thêm logic di chuyển của quái)
+        //logic
+        //calc distance
+        float difX = player->position.x - position.x;
+        float difY = player->position.y - position.y;
+        distanceToPlayer = sqrt(difX * difX + difY * difY);
 
+        switch(state){
+            case EnemyState::WANDERING:
+                setAnimation("idle");
+                updateWandering(deltaTime);
+                break;
+
+            case EnemyState::CHASING:
+                setAnimation("walk");
+                updateChasing(deltaTime);
+                break;
+
+            case EnemyState::ATTACKING:
+                setAnimation("attack");;
+                updateAttacking(deltaTime);
+                break;
+        }
         animations[currentAnim].update();
+        position.x += velocity.x * deltaTime;
+        position.y += velocity.y * deltaTime;
     }
 
     void render(SDL_Renderer* renderer) override {
@@ -238,6 +272,62 @@ public:
     }
 
 private:
+    void updateWandering(float deltaTime) {
+        if(distanceToPlayer < detectionR) {
+            state = EnemyState::CHASING;
+            return;
+        }
+
+        //change direction after cert time
+        stateTimer -= deltaTime;
+        if(stateTimer <= 0.0f) {
+//            float angle = static_cast<float>(rand() % 360) * (3.14159 / 180.0);
+//            velocity.x = 1.0 * cos(angle) * wanderSpeed;
+//            velocity.y = 1.0 * sin(angle) * wanderSpeed;
+            flipHorizontal = 1 - flipHorizontal;
+            //new wander time(random)
+            stateTimer = 2.0 + static_cast<float>(rand() % 4);
+        }
+    }
+
+    void updateChasing(float deltaTime) {
+        if(distanceToPlayer > detectionR * 1.2) {
+            state = EnemyState::WANDERING;
+            velocity = {0, 0};
+            return;
+        }
+
+        float difX = player->position.x - position.x;
+        float difY = player->position.y - position.y;
+        float len = sqrt(difX * difX + difY * difY);
+
+        if(len > 0) {
+            velocity.x = (difX / len) * chaseSpeed;
+            velocity.y = (difY / len) * chaseSpeed;
+        }
+
+        flipHorizontal = (velocity.x < 0);
+
+        if(distanceToPlayer < attackR) {
+            state = EnemyState::ATTACKING;
+            velocity = {0, 0};
+        }
+    }
+
+    void updateAttacking(float deltaTime) {
+        attackTimer += deltaTime;
+        if(attackTimer >= attackCooldown) {
+            if(distanceToPlayer < attackR) {
+                player->takeDamage(attackDamage);
+            }
+            attackTimer = 0.0;
+        }
+
+        if(distanceToPlayer > attackR) {
+            state = EnemyState::CHASING;
+        }
+    }
+
     Type enemyType;
 
     EnemyState state;
@@ -251,6 +341,7 @@ private:
     float attackCooldown = 1.5f;
     float attackDamage = 10.0f;
     float distanceToPlayer = 0.0f;
+    float health = 100.0;
 };
 
 //background
@@ -281,9 +372,8 @@ int playerY = 445;
 SDL_Rect gSpriteClips[ANIMATION_FRAMES];
 int currentFrame = 0;
 Uint32 lastFrameTime = 0;
+vector<Enemy> enemies;
 
-
-SDL_Texture* loadTexture(const string &path);
 
 bool init() {
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
@@ -426,13 +516,17 @@ void gameloop() {
         handleInput();
 
         player->update(deltaTime);
-
+        for (auto &enemy : enemies) {
+            enemy.update(deltaTime);
+        }
         // Render
         SDL_RenderClear(gRenderer);
         renderBackground();
 
         player->render(gRenderer);
-
+        for (auto& enemy : enemies) {
+            enemy.render(gRenderer);
+        }
         SDL_RenderPresent(gRenderer);
 
         cerr << (player->position.x) << " " << (player->position.y) << '\n';
@@ -460,6 +554,7 @@ int main(int argc, char* args[]) {
         cerr << "Failed to initialize!" << endl;
         return -1;
     }
+    enemies.pb({473, 445, Enemy::Type::WEREWOLF, player});
     // Vòng lặp game chính
     gameloop();
 
