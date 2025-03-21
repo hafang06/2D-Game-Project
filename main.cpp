@@ -87,15 +87,23 @@ protected:
 class Player: public Entity{
 public:
     float baseSpeed = 10;
-    float runSpeed = 13;
+    float runSpeed = 17;
     bool isRunning = 0;//always walk till pressing shift
     bool inOtherState = 0;
 
-    Player(int x, int y, SDL_Texture* idleTex, SDL_Texture* runTex, SDL_Texture* walkTex, SDL_Texture* attack1Tex): Entity(x, y){
+    bool isJumping = 0;
+    bool isGrounded = 0;
+    const float Gravity = 31000.0;
+    const float Ground_Level = 455;
+    const float Jumping_F = -1000;//lực nhảy
+
+
+    Player(int x, int y, SDL_Texture* idleTex, SDL_Texture* runTex, SDL_Texture* walkTex, SDL_Texture* attack1Tex, SDL_Texture* jumpTex): Entity(x, y){
         animations["idle"] = Animation(idleTex, 66, FRAME_HEIGHT, ANIMATION_FRAMES, ANIMATION_SPEED);
         animations["run"] = Animation(runTex, 98, FRAME_HEIGHT, 7, ANIMATION_SPEED);
         animations["walk"] = Animation(walkTex, 65, FRAME_HEIGHT, 8, ANIMATION_SPEED);
         animations["attack1"] = Animation(attack1Tex, 96, FRAME_HEIGHT, 5, 70);
+        animations["jump"] = Animation(jumpTex, 88, FRAME_HEIGHT, 6, 150);
         animations["attack2"] = Animation(nullptr, FRAME_WIDTH, FRAME_HEIGHT, 4, 50, 0);
         animations["attack3"] = Animation(nullptr, FRAME_WIDTH, FRAME_HEIGHT, 4, 50, 0);
         animations["defend"] = Animation(nullptr, FRAME_WIDTH, FRAME_HEIGHT, 5, 50, 0);
@@ -106,11 +114,22 @@ public:
 
         //updtae logic
         float movespeed = isRunning ? runSpeed : baseSpeed;
+        velocity.y += Gravity * deltaTime;
+//        cerr << Gravity * deltaTime << '\n';
         position.x += velocity.x * deltaTime * movespeed;
-        position.y += velocity.y * deltaTime * movespeed;
+        position.y = ceil(velocity.y * deltaTime + position.y);
+//        position.y += velocity.y * deltaTime;
+
+        if (position.y >= Ground_Level) {
+            position.y = Ground_Level;
+            velocity.y = 0.0;
+            isGrounded = true;
+        }
+        else isGrounded = 0;
 
         //update animation based on current status
-        if (velocity.x != 0 || velocity.y != 0) {
+//        if(!isGrounded && ) setAnimation("jump");
+        if (velocity.x != 0) {
             if(isRunning) setAnimation("run");
             else setAnimation("walk");
         }else if(!inOtherState){
@@ -118,8 +137,9 @@ public:
         }
 
         animations[currentAnim].update();
+
         position.x = max(0, min(position.x, SCREEN_WIDTH - animations[currentAnim].frameWidth));
-        position.y = max(0, min(position.y, SCREEN_HEIGHT - animations[currentAnim].frameHeight));
+        position.y = max(0, min(position.y, 445));
 
     }
     void render(SDL_Renderer* renderer) override {
@@ -144,6 +164,15 @@ public:
 
     void run() {
         setAnimation("run");
+    }
+
+    void jump(){
+        inOtherState = 1;
+        setAnimation("jump");
+        if(!isGrounded){
+            velocity.y = Jumping_F;
+            isGrounded = 0;
+        }
     }
 
     void attack() {
@@ -200,7 +229,7 @@ public:
             case Type::WEREWOLF:
                 animations["idle"] = Animation(loadTexture("assets/CREP_Werewolf/White_Werewolf/Idle.png"), 128, 128, 8, 100);
                 animations["attack"] = Animation(loadTexture("assets/CREP_Werewolf/White_Werewolf/Attack.png"), 128, 128, 6, 200);
-                animations["walk"] = Animation(loadTexture("assets/CREP_Werewolf/White_Werewolf/Walk.png"), 128, 128, 11, 100);
+                animations["walk"] = Animation(loadTexture("assets/CREP_Werewolf/White_Werewolf/Walk.png"), 128, 128, 11, 60);
 //                animations["run"] = Animation(loadTexture("assets/CREP_Werewolf/White_Werewolf/Run.png"), 128, 128, 9, 100);
 //                animations["runAttack"] = Animation(loadTexture("assets/CREP_Werewolf/White_Werewolf/Run+Attack.png"), 128, 128, 7, 100);
                 animations["dead"] = Animation(loadTexture("assets/CREP_Werewolf/White_Werewolf/Dead.png"), 128, 128, 2, 100);
@@ -270,7 +299,10 @@ public:
 //        }
         SDL_RenderCopyEx(renderer, anim.texture, &anim.frames[anim.currentFrame], &destRect,0.0,&pivot,flip);
     }
-
+    void takeDamage(float damage) {
+        health -= damage;
+        if(health < 0) health = 0;
+    }
 private:
     void updateWandering(float deltaTime) {
         if(distanceToPlayer < detectionR) {
@@ -305,7 +337,7 @@ private:
             velocity.x = (difX / len) * chaseSpeed;
             velocity.y = (difY / len) * chaseSpeed;
         }
-
+        velocity.y = max(velocity.y, 0);//fixing flying object=))
         flipHorizontal = (velocity.x < 0);
 
         if(distanceToPlayer < attackR) {
@@ -408,11 +440,12 @@ bool init() {
     SDL_Texture* walktex = loadTexture("assets/MAIN_knight/Spritesheet 128/Knight_1/Walk.png");
     SDL_Texture* attack1tex = loadTexture("assets/MAIN_knight/Spritesheet 128/Knight_1/Attack 1.png");
     SDL_Texture* runtex = loadTexture("assets/MAIN_knight/Spritesheet 128/Knight_1/Run.png");
+    SDL_Texture* jumptex = loadTexture("assets/MAIN_knight/Spritesheet 128/Knight_1/Jump.png");
     if(!idletex || !walktex || !attack1tex || !runtex){
         cerr << "Failed to load player texture\n";
         return 0;
     }
-    player = new Player(playerX, playerY, idletex, runtex, walktex, attack1tex);
+    player = new Player(playerX, playerY, idletex, runtex, walktex, attack1tex, jumptex);
 
 //    //set frame
 //    for (int i = 0; i < ANIMATION_FRAMES; ++i) {
@@ -472,6 +505,10 @@ void handleInput() {
     if (keystates[SDL_SCANCODE_J]) {
         player->attack();
     }
+    if (keystates[SDL_SCANCODE_SPACE]) {
+        player->jump();
+//        player->velocity.y = -5;
+    }
 //        cerr << playerX << " " << playerY << '\n';
 }
 
@@ -529,7 +566,8 @@ void gameloop() {
         }
         SDL_RenderPresent(gRenderer);
 
-        cerr << (player->position.x) << " " << (player->position.y) << '\n';
+        cerr << (player->position.x) << " " << (player->position.y) << " " << (player->velocity.y) << " " << deltaTime << " " << (player->velocity.y)*deltaTime <<  '\n';
+//        cerr << (player->position.x) << " " << (player->position.y) << '\n';
         SDL_Delay(16);
     }
 }
