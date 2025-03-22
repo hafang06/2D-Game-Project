@@ -113,8 +113,8 @@ protected:
 //
 class Player: public Entity{
 public:
-    float baseSpeed = 10;
-    float runSpeed = 17;
+    float baseSpeed = 150;
+    float runSpeed = 250;
     bool isRunning = 0;//always walk till pressing shift
     bool inOtherState = 0;
 
@@ -125,9 +125,16 @@ public:
 
     bool jumpRequested = 0;
     bool canJump = 1;
+
 //    const float JUMP_HEIGHT = 200.0;//FIXED JUMPING HEIGHT
 //    const float JUMP_DURATION = 0.5; //t
     float jumpVelocity; //velocity.y
+
+    //we have walk and run state so we should also have stamina:)
+    float stamina = 100.0;
+    float staminaDrainRate = 20.0;
+    float staminaRegenRate = 10.0;
+
     Player(int x, int y, SDL_Texture* idleTex, SDL_Texture* runTex, SDL_Texture* walkTex, SDL_Texture* attack1Tex, SDL_Texture* jumpTex): Entity(x, y){
         animations["idle"] = Animation(idleTex, 66, FRAME_HEIGHT, ANIMATION_FRAMES, ANIMATION_SPEED);
         animations["run"] = Animation(runTex, 98, FRAME_HEIGHT, 7, ANIMATION_SPEED);
@@ -142,7 +149,7 @@ public:
     void update(float deltaTime) override {
         //updtae logic
 //        jumpVelocity = (2.0 * JUMP_HEIGHT)/JUMP_DURATION - (Gravity * JUMP_DURATION)/2;
-        float movespeed = isRunning ? runSpeed : baseSpeed;
+//        float movespeed = isRunning ? runSpeed : baseSpeed;
 //        cerr << Gravity * deltaTime << '\n';
 //        position.y += velocity.y * deltaTime;
         if(jumpRequested && canJump){
@@ -151,7 +158,6 @@ public:
             canJump = 0;
         }
         velocity.y += Gravity * deltaTime;
-        position.x += velocity.x * deltaTime * movespeed;
         position.y = ceil(velocity.y * deltaTime + position.y);
 
         if (position.y >= Ground_Level) {
@@ -163,13 +169,23 @@ public:
 
         //update animation based on current status
 //        if(!isGrounded && ) setAnimation("jump");
+        if (isRunning) {
+            stamina = max(0.0f, stamina - staminaDrainRate * deltaTime);
+            if (stamina <= 0){//not enough stamina to run
+                isRunning = 0;
+                velocity.x = baseSpeed;
+                if(flipHorizontal) velocity.x *= -1;
+            }
+
+        } else stamina = min(100.0f, stamina + staminaRegenRate * deltaTime);
+
+        position.x += velocity.x * deltaTime;
         if (velocity.x != 0) {
             if(isRunning) setAnimation("run");
             else setAnimation("walk");
         }else if(!inOtherState){
             setAnimation("idle");
         }
-
         animations[currentAnim].update();
 
         position.x = max(0, min(position.x, SCREEN_WIDTH - animations[currentAnim].frameWidth));
@@ -595,7 +611,7 @@ void gameloop() {
         }
         SDL_RenderPresent(gRenderer);
 
-        cerr << (player->position.x) << " " << (player->position.y) << " " << (player->canJump) << " " << deltaTime << " " << (player->velocity.y)*deltaTime <<  '\n';
+        cerr << (player->position.x) << " " << (player->position.y) << " " << (player->velocity.x) << " " << (player->stamina) <<  '\n';
 //        cerr << (player->position.x) << " " << (player->position.y) << '\n';
 //        debug(player->velocity);
         SDL_Delay(16);
