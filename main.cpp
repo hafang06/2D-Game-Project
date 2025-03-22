@@ -7,6 +7,33 @@
 #define pb push_back
 using namespace std;
 
+void __print(int x) {cerr << x;}
+void __print(long x) {cerr << x;}
+void __print(long long x) {cerr << x;}
+void __print(unsigned x) {cerr << x;}
+void __print(unsigned long x) {cerr << x;}
+void __print(unsigned long long x) {cerr << x;}
+void __print(float x) {cerr << x;}
+void __print(double x) {cerr << x;}
+void __print(long double x) {cerr << x;}
+void __print(char x) {cerr << '\'' << x << '\'';}
+void __print(const char *x) {cerr << '\"' << x << '\"';}
+void __print(const string &x) {cerr << '\"' << x << '\"';}
+void __print(bool x) {cerr << (x ? "true" : "false");}
+
+template<typename T, typename V>
+void __print(const pair<T, V> &x) {cerr << '{'; __print(x.first); cerr << ','; __print(x.second); cerr << '}';}
+template<typename T>
+void __print(const T &x) {int f = 0; cerr << '{'; for (auto &i: x) cerr << (f++ ? "," : ""), __print(i); cerr << "}";}
+void _print() {cerr << "]\n";}
+template <typename T, typename... V>
+void _print(T t, V... v) {__print(t); if (sizeof...(v)) cerr << ", "; _print(v...);}
+#ifndef ONLINE_JUDGE
+#define debug(x...) cerr << "[" << #x << "] = ["; _print(x)
+#else
+#define debug(x...)
+#endif
+
 const int SCREEN_WIDTH = 1280;
 const int SCREEN_HEIGHT =720;
 const int PLAYER_SIZE = 128;
@@ -92,12 +119,15 @@ public:
     bool inOtherState = 0;
 
     bool isJumping = 0;
-    bool isGrounded = 0;
-    const float Gravity = 31000.0;
-    const float Ground_Level = 455;
-    const float Jumping_F = -1000;//lực nhảy
+    const float Gravity = 9800.0;
+    const float Ground_Level = 445;
+    const float Jumping_F = -5500;//lực nhảy
 
-
+    bool jumpRequested = 0;
+    bool canJump = 1;
+//    const float JUMP_HEIGHT = 200.0;//FIXED JUMPING HEIGHT
+//    const float JUMP_DURATION = 0.5; //t
+    float jumpVelocity; //velocity.y
     Player(int x, int y, SDL_Texture* idleTex, SDL_Texture* runTex, SDL_Texture* walkTex, SDL_Texture* attack1Tex, SDL_Texture* jumpTex): Entity(x, y){
         animations["idle"] = Animation(idleTex, 66, FRAME_HEIGHT, ANIMATION_FRAMES, ANIMATION_SPEED);
         animations["run"] = Animation(runTex, 98, FRAME_HEIGHT, 7, ANIMATION_SPEED);
@@ -110,22 +140,26 @@ public:
 
     }
     void update(float deltaTime) override {
-
-
         //updtae logic
+//        jumpVelocity = (2.0 * JUMP_HEIGHT)/JUMP_DURATION - (Gravity * JUMP_DURATION)/2;
         float movespeed = isRunning ? runSpeed : baseSpeed;
-        velocity.y += Gravity * deltaTime;
 //        cerr << Gravity * deltaTime << '\n';
+//        position.y += velocity.y * deltaTime;
+        if(jumpRequested && canJump){
+//            velocity.y = jumpVelocity;
+            velocity.y = Jumping_F;
+            canJump = 0;
+        }
+        velocity.y += Gravity * deltaTime;
         position.x += velocity.x * deltaTime * movespeed;
         position.y = ceil(velocity.y * deltaTime + position.y);
-//        position.y += velocity.y * deltaTime;
 
         if (position.y >= Ground_Level) {
             position.y = Ground_Level;
             velocity.y = 0.0;
-            isGrounded = true;
+            canJump = 1;
+            jumpRequested = 0;
         }
-        else isGrounded = 0;
 
         //update animation based on current status
 //        if(!isGrounded && ) setAnimation("jump");
@@ -169,10 +203,6 @@ public:
     void jump(){
         inOtherState = 1;
         setAnimation("jump");
-        if(!isGrounded){
-            velocity.y = Jumping_F;
-            isGrounded = 0;
-        }
     }
 
     void attack() {
@@ -474,10 +504,8 @@ void handleInput() {
             isRunning = false;
         }
 //        else if (e.type == SDL_KEYDOWN) {
-//            switch (e.key.keysym.sym) {
-//                case SDLK_ESCAPE:
-//                    isRunning = false;
-//                    break;
+//            switch (e.key.keysym.scancode == SDL_SCANCODE_SPACE && (player ->canJump)) {
+
 //                // Thêm các phím điều khiển khác ở đây
 //            }
 //        }
@@ -505,8 +533,9 @@ void handleInput() {
     if (keystates[SDL_SCANCODE_J]) {
         player->attack();
     }
-    if (keystates[SDL_SCANCODE_SPACE]) {
+    if (keystates[SDL_SCANCODE_SPACE] && (player->canJump)) {
         player->jump();
+        (player->jumpRequested) = 1;
 //        player->velocity.y = -5;
     }
 //        cerr << playerX << " " << playerY << '\n';
@@ -566,8 +595,9 @@ void gameloop() {
         }
         SDL_RenderPresent(gRenderer);
 
-        cerr << (player->position.x) << " " << (player->position.y) << " " << (player->velocity.y) << " " << deltaTime << " " << (player->velocity.y)*deltaTime <<  '\n';
+        cerr << (player->position.x) << " " << (player->position.y) << " " << (player->canJump) << " " << deltaTime << " " << (player->velocity.y)*deltaTime <<  '\n';
 //        cerr << (player->position.x) << " " << (player->position.y) << '\n';
+//        debug(player->velocity);
         SDL_Delay(16);
     }
 }
