@@ -204,6 +204,26 @@ public:
         SDL_RenderCopyEx(renderer, anim.texture, &anim.frames[anim.currentFrame], &destRect,0.0,&pivot,flip);
     }
 
+    void renderHealthPointBar(SDL_Renderer* renderer){
+        SDL_Rect bgRect = {10, 10, 325, 20};
+        SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255);
+        SDL_RenderFillRect(renderer, &bgRect);
+
+        SDL_Rect healthRect = {12, 12, (int)(321 * (health/100.0f)), 16};
+        SDL_SetRenderDrawColor(renderer, 199, 0, 60, 255);
+        SDL_RenderFillRect(renderer, &healthRect);
+    }
+
+    void renderStaminaBar(SDL_Renderer* renderer) {
+        SDL_Rect bgRect = {10, 40, 200, 20};
+        SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255);
+        SDL_RenderFillRect(renderer, &bgRect);
+
+        SDL_Rect staminaRect = {12, 42, (int)(196 * (stamina/100.0f)), 16};
+        SDL_SetRenderDrawColor(renderer, 0, 200, 0, 255);
+        SDL_RenderFillRect(renderer, &staminaRect);
+    }
+
     void setAnimation(const string& animName) {
         if (currentAnim != animName) {
             currentAnim = animName;
@@ -252,7 +272,7 @@ public:
     Enemy(int x, int y, Type type, Player* target) : Entity(x, y), enemyType(type), player(target) {
         // Khởi tạo animation theo loại quái
         detectionR = 250.0;
-        attackR = 50.0;
+        attackR = 80.0;
         wanderSpeed = 100.0;
         chaseSpeed = 200.0;
         state = EnemyState::WANDERING;
@@ -604,7 +624,8 @@ void gameloop() {
         // Render
         SDL_RenderClear(gRenderer);
         renderBackground();
-
+        player->renderStaminaBar(gRenderer);
+        player->renderHealthPointBar(gRenderer);
         player->render(gRenderer);
         for (auto& enemy : enemies) {
             enemy.render(gRenderer);
