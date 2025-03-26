@@ -1,12 +1,13 @@
 #include <SDL.h>
 #include<SDL_image.h>
+#include<SDL_ttf.h>
 #include <bits/stdc++.h>
-
 #define FOR(i, a, b) for(int i = (a); i <= (b); i++)
 #define FORD(i, a, b) for(int i = (a); i >= (b); i--)
 #define pb push_back
 using namespace std;
 
+//tourist debugger
 void __print(int x) {cerr << x;}
 void __print(long x) {cerr << x;}
 void __print(long long x) {cerr << x;}
@@ -113,10 +114,12 @@ protected:
 //
 class Player: public Entity{
 public:
+
     float baseSpeed = 150;
     float runSpeed = 250;
     bool isRunning = 0;//always walk till pressing shift
     bool inOtherState = 0;
+    string state = "idle";
 
     bool isJumping = 0;
     const float Gravity = 9800.0;
@@ -135,12 +138,21 @@ public:
     float staminaDrainRate = 20.0;
     float staminaRegenRate = 10.0;
 
+    bool isDead = 0;
+
+    float attackTimer = 0.0f;
+    float attackR = 100.0f;
+    float attackCooldown = 1.0f;
+    float attackDamage = 30.0f;
+    float health = 100.0f;
+
     Player(int x, int y, SDL_Texture* idleTex, SDL_Texture* runTex, SDL_Texture* walkTex, SDL_Texture* attack1Tex, SDL_Texture* jumpTex): Entity(x, y){
         animations["idle"] = Animation(idleTex, 66, FRAME_HEIGHT, ANIMATION_FRAMES, ANIMATION_SPEED);
         animations["run"] = Animation(runTex, 98, FRAME_HEIGHT, 7, ANIMATION_SPEED);
         animations["walk"] = Animation(walkTex, 65, FRAME_HEIGHT, 8, ANIMATION_SPEED);
         animations["attack1"] = Animation(attack1Tex, 96, FRAME_HEIGHT, 5, 70);
-        animations["jump"] = Animation(jumpTex, 88, FRAME_HEIGHT, 6, 150);
+        animations["jump"] = Animation(jumpTex, 88, FRAME_HEIGHT, 6, 60);
+        animations["dead"] = Animation(loadTexture("assets/MAIN_knight/Spritesheet 128/Knight_1/Dead.png"), FRAME_WIDTH, FRAME_HEIGHT, 6, 100);
         animations["attack2"] = Animation(nullptr, FRAME_WIDTH, FRAME_HEIGHT, 4, 50, 0);
         animations["attack3"] = Animation(nullptr, FRAME_WIDTH, FRAME_HEIGHT, 4, 50, 0);
         animations["defend"] = Animation(nullptr, FRAME_WIDTH, FRAME_HEIGHT, 5, 50, 0);
@@ -152,6 +164,14 @@ public:
 //        float movespeed = isRunning ? runSpeed : baseSpeed;
 //        cerr << Gravity * deltaTime << '\n';
 //        position.y += velocity.y * deltaTime;
+        if(isDead){
+            animations[currentAnim].update();
+            position.x = max(0, min(position.x, SCREEN_WIDTH - animations[currentAnim].frameWidth));
+            position.y = max(0, min(position.y, 445));
+            animations[currentAnim].isLooping = 0;
+            return;
+        }
+
         if(jumpRequested && canJump){
 //            velocity.y = jumpVelocity;
             velocity.y = Jumping_F;
@@ -167,6 +187,10 @@ public:
             jumpRequested = 0;
         }
 
+        //attack
+        if(state == "attacking")
+
+
         //update animation based on current status
 //        if(!isGrounded && ) setAnimation("jump");
         if (isRunning) {
@@ -176,7 +200,6 @@ public:
                 velocity.x = baseSpeed;
                 if(flipHorizontal) velocity.x *= -1;
             }
-
         } else stamina = min(100.0f, stamina + staminaRegenRate * deltaTime);
 
         position.x += velocity.x * deltaTime;
@@ -186,6 +209,11 @@ public:
         }else if(!inOtherState){
             setAnimation("idle");
         }
+
+        if(currentAnim == "attack1"){
+            attackTimer += deltaTime;
+        }
+
         animations[currentAnim].update();
 
         position.x = max(0, min(position.x, SCREEN_WIDTH - animations[currentAnim].frameWidth));
@@ -251,23 +279,35 @@ public:
         setAnimation("defend");
     }
 
+    void dead(){
+        isDead = 1;
+        setAnimation("dead");
+    }
+
     void takeDamage(float damage) {
         health -= damage;
-        if(health < 0) health = 0;
+        if(health < 0){
+            health = 0;
+            dead();
+        }
     }
-    float health = 100.0;
+
+
 
 };
 
 enum class EnemyState {
     WANDERING,
     CHASING,
-    ATTACKING
+    ATTACKING,
+    DEAD
 };
 
 class Enemy : public Entity {
 public:
     enum class Type { MINOTAUR, SKELETON, WEREWOLF, BLUESLIME, GREENSLIME};
+
+    bool isDead = 0;
 
     Enemy(int x, int y, Type type, Player* target) : Entity(x, y), enemyType(type), player(target) {
         // Khởi tạo animation theo loại quái
@@ -332,6 +372,7 @@ public:
         float difX = player->position.x - position.x;
         float difY = player->position.y - position.y;
         distanceToPlayer = sqrt(difX * difX + difY * difY);
+        updateTakingDamage(player->attackDamage);
 
         switch(state){
             case EnemyState::WANDERING:
@@ -348,6 +389,9 @@ public:
                 setAnimation("attack");;
                 updateAttacking(deltaTime);
                 break;
+            case EnemyState::DEAD:
+                setAnimation("dead");
+                updateDead(deltaTime);
         }
         animations[currentAnim].update();
         position.x += velocity.x * deltaTime;
@@ -355,6 +399,7 @@ public:
     }
 
     void render(SDL_Renderer* renderer) override {
+        if(isDead) return;
         Animation& anim = animations[currentAnim];
         //flip the texture
         SDL_RendererFlip flip = flipHorizontal ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
@@ -367,7 +412,11 @@ public:
     }
     void takeDamage(float damage) {
         health -= damage;
-        if(health < 0) health = 0;
+        if(health <= 0){
+            health = 0;
+            state = EnemyState::DEAD;
+            isDead = 1;
+        }
     }
 private:
     void updateWandering(float deltaTime) {
@@ -424,6 +473,17 @@ private:
         if(distanceToPlayer > attackR) {
             state = EnemyState::CHASING;
         }
+    }
+
+    void updateDead(float deltaTime){
+        animations[currentAnim].isLooping = 0;
+        animations[currentAnim].isPlaying = 0;
+    }
+
+    void updateTakingDamage(float damage){
+        if(distanceToPlayer < (player->attackR)
+                        &&
+        (player->attackTimer) >= (player->attackCooldown)) takeDamage(damage);
     }
 
     Type enemyType;
@@ -617,10 +677,16 @@ void gameloop() {
 
         handleInput();
 
+        //update all entity
         player->update(deltaTime);
         for (auto &enemy : enemies) {
             enemy.update(deltaTime);
         }
+
+        if(player->attackTimer >= player->attackCooldown){
+            player->attackTimer = 0.0f;
+        }
+
         // Render
         SDL_RenderClear(gRenderer);
         renderBackground();
