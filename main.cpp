@@ -1,4 +1,4 @@
-#include <SDL.h>
+        #include <SDL.h>
 #include<SDL_image.h>
 #include<SDL_ttf.h>
 #include <bits/stdc++.h>
@@ -100,9 +100,16 @@ public:
 class Entity{
 public:
     Entity(int x, int y): position({x, y}){}
+    SDL_Rect hitbox;
 
     virtual void update(float deltaTime) = 0;
     virtual void render(SDL_Renderer* renderer) = 0;
+    void updateHitbox(){
+        hitbox.x = position.x + 11;
+        hitbox.y = position.y + 45;
+        hitbox.w = 80;
+        hitbox.h = 85;
+    }
 
     SDL_Point position{0, 0};
     SDL_Point velocity{0, 0};
@@ -218,6 +225,7 @@ public:
 
         position.x = max(0, min(position.x, SCREEN_WIDTH - animations[currentAnim].frameWidth));
         position.y = max(0, min(position.y, 445));
+        updateHitbox();
 
     }
     void render(SDL_Renderer* renderer) override {
@@ -396,6 +404,7 @@ public:
         animations[currentAnim].update();
         position.x += velocity.x * deltaTime;
         position.y += velocity.y * deltaTime;
+        updateHitbox();
     }
 
     void render(SDL_Renderer* renderer) override {
@@ -592,6 +601,99 @@ bool init() {
     return 1;
 }
 
+SDL_Texture* loadTexture(const string &path) {
+    SDL_Texture* newTexture = IMG_LoadTexture(gRenderer, path.c_str());
+    if (!newTexture) {
+        cerr << "Failed to load texture! Error: " << IMG_GetError() << endl;
+    }
+    return newTexture;
+}
+
+void renderBackground() {
+    // Xóa màn hình
+    SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, 255);
+    SDL_RenderClear(gRenderer);
+
+    //render background
+    SDL_RenderCopy(gRenderer, bgTextures[SKY], NULL, NULL);//sky
+    SDL_RenderCopy(gRenderer, bgTextures[MIDDLE_LAYER], NULL, NULL);//middle layer
+    SDL_RenderCopy(gRenderer, bgTextures[DOWN_LAYER], NULL, NULL);//down layer
+    SDL_RenderCopy(gRenderer, bgTextures[LIGHT], NULL, NULL);//light
+    SDL_RenderCopy(gRenderer, bgTextures[TOP_LAYER], NULL, NULL);//top layer
+
+//    SDL_Rect* currentClips = &gSpriteClips[currentFrame];
+//    SDL_Rect renderQuad = { playerX, playerY, FRAME_WIDTH, FRAME_HEIGHT };
+//    SDL_RenderCopy(gRenderer, gPlayerTexture, currentClips, &renderQuad);
+
+    // Cập nhật màn hình
+//    SDL_RenderPresent(gRenderer);
+}
+
+//render hitbox  for debug purpose
+void renderDebug(SDL_Renderer* renderer) {
+    SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255);
+    SDL_RenderFillRect(renderer, &(player->hitbox));
+
+    SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255);
+    for (auto& enemy : enemies) {
+        SDL_RenderFillRect(renderer, &(enemy.hitbox));
+    }
+}
+
+bool checkCollision(const SDL_Rect& a, const SDL_Rect& b) {
+    return (a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y);
+}
+
+void handlePlayerEnemyCollision(Player& player, Enemy& enemy) {
+    //vector
+    float dx = player.position.x - enemy.position.x;
+    float dy = player.position.y - enemy.position.y;
+    float length = sqrt(dx*dx + dy*dy);
+
+
+    //after collision, pushing each other and only player takes damage
+    if (length != 0) {
+        float pushForce = 50.0f;
+        player.position.x += (dx/length) * pushForce;
+        player.position.y += (dy/length) * pushForce;
+    }
+
+    player.takeDamage(10);
+}
+
+void handleEnemyCollision(Enemy& enemy1, Enemy& enemy2) {
+    //vector
+    float dx = enemy1.position.x - enemy2.position.x;
+    float dy = enemy1.position.y - enemy2.position.y;
+    float length = sqrt(dx*dx + dy*dy);
+
+
+    if (length != 0) {
+        float pushForce = 2000.0f;
+        enemy1.position.x += (dx/length) * pushForce;
+        enemy1.position.y += (dy/length) * pushForce;
+        enemy2.position.x -= (dx/length) * pushForce;
+        enemy2.position.y -= (dy/length) * pushForce;
+    }
+
+}
+
+void checkAllCollision() {
+    //check player and enemy
+    for (auto& enemy : enemies) {
+        if (checkCollision(player->hitbox, enemy.hitbox)) {
+            handlePlayerEnemyCollision(*player, enemy);
+        }
+    }
+
+    //enemy and enemy
+    FOR(i, 0, (int)enemies.size() - 1)
+        FOR(j, i + 1, (int)enemies.size() - 1)
+            if (checkCollision(enemies[i].hitbox, enemies[j].hitbox)) {
+                handleEnemyCollision(enemies[i], enemies[j]);
+            }
+}
+
 // Xử lý input
 void handleInput() {
     SDL_Event e;
@@ -637,37 +739,6 @@ void handleInput() {
 //        cerr << playerX << " " << playerY << '\n';
 }
 
-
-
-
-SDL_Texture* loadTexture(const string &path) {
-    SDL_Texture* newTexture = IMG_LoadTexture(gRenderer, path.c_str());
-    if (!newTexture) {
-        cerr << "Failed to load texture! Error: " << IMG_GetError() << endl;
-    }
-    return newTexture;
-}
-
-void renderBackground() {
-    // Xóa màn hình
-    SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, 255);
-    SDL_RenderClear(gRenderer);
-
-    //render background
-    SDL_RenderCopy(gRenderer, bgTextures[SKY], NULL, NULL);//sky
-    SDL_RenderCopy(gRenderer, bgTextures[MIDDLE_LAYER], NULL, NULL);//middle layer
-    SDL_RenderCopy(gRenderer, bgTextures[DOWN_LAYER], NULL, NULL);//down layer
-    SDL_RenderCopy(gRenderer, bgTextures[LIGHT], NULL, NULL);//light
-    SDL_RenderCopy(gRenderer, bgTextures[TOP_LAYER], NULL, NULL);//top layer
-
-//    SDL_Rect* currentClips = &gSpriteClips[currentFrame];
-//    SDL_Rect renderQuad = { playerX, playerY, FRAME_WIDTH, FRAME_HEIGHT };
-//    SDL_RenderCopy(gRenderer, gPlayerTexture, currentClips, &renderQuad);
-
-    // Cập nhật màn hình
-//    SDL_RenderPresent(gRenderer);
-}
-
 void gameloop() {
     Uint32 lastTime = SDL_GetTicks();
     while (isRunning) {
@@ -687,15 +758,21 @@ void gameloop() {
             player->attackTimer = 0.0f;
         }
 
+        checkAllCollision();
+
+
         // Render
         SDL_RenderClear(gRenderer);
         renderBackground();
+        renderDebug(gRenderer);
         player->renderStaminaBar(gRenderer);
         player->renderHealthPointBar(gRenderer);
         player->render(gRenderer);
         for (auto& enemy : enemies) {
             enemy.render(gRenderer);
         }
+
+
         SDL_RenderPresent(gRenderer);
 
         cerr << (player->position.x) << " " << (player->position.y) << " " << (player->velocity.x) << " " << (player->stamina) <<  '\n';
