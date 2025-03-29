@@ -43,7 +43,16 @@ const int FRAME_HEIGHT = 128;
 const int ANIMATION_FRAMES = 4;
 const int ANIMATION_SPEED = 100;//milisecond;
 const int FRAME_RATE = 60;
+const int BUTTON_WIDTH = 200;
+const int BUTTON_HEIGHT = 50;
+
 SDL_Texture* loadTexture(const string &path);
+
+enum GameState {
+    PLAYING,
+    GAME_OVER
+};
+GameState gameState = PLAYING;
 
 //animation
 class Animation{
@@ -123,7 +132,7 @@ class Player: public Entity{
 public:
 
     float baseSpeed = 150;
-    float runSpeed = 250;
+    float runSpeed = 500;
     bool isRunning = 0;//always walk till pressing shift
     bool inOtherState = 0;
     string state = "idle";
@@ -131,7 +140,7 @@ public:
     bool isJumping = 0;
     const float Gravity = 9800.0;
     const float Ground_Level = 445;
-    const float Jumping_F = -5500;//lực nhảy
+    const float Jumping_F = -8000;//lực nhảy
 
     bool jumpRequested = 0;
     bool canJump = 1;
@@ -294,10 +303,16 @@ public:
 
     void takeDamage(float damage) {
         health -= damage;
-        if(health < 0){
+        if(health <= 0){
             health = 0;
+            gameState = GAME_OVER;
             dead();
         }
+    }
+
+    void reset(){
+        isDead = 0;
+        health = 100.0f;
     }
 
 
@@ -511,6 +526,8 @@ private:
     float health = 100.0;
 };
 
+
+
 //background
 enum BackgroundLayers {
     SKY,
@@ -526,6 +543,7 @@ SDL_Window* gWindow = nullptr;
 SDL_Renderer* gRenderer = nullptr;
 //SDL_Texture* gPlayerTexture = nullptr;
 SDL_Texture* bgTextures[LAYER_COUNT];
+TTF_Font* gFont = nullptr;
 
 Player* player = nullptr;
 
@@ -540,6 +558,48 @@ SDL_Rect gSpriteClips[ANIMATION_FRAMES];
 int currentFrame = 0;
 Uint32 lastFrameTime = 0;
 vector<Enemy> enemies;
+
+class Button {
+public:
+    SDL_Rect rect;
+    string text;
+
+    Button(int x, int y, string s) {
+        rect = {x, y, BUTTON_WIDTH, BUTTON_HEIGHT};
+        text = s;
+    }
+
+    void render(SDL_Renderer* renderer) {
+        SDL_SetRenderDrawColor(renderer, 70, 70, 70, 255);
+        SDL_RenderFillRect(renderer, &rect);
+
+        SDL_Color textColor = {255, 255, 255};
+        SDL_Surface* textSurface = TTF_RenderText_Solid(gFont, text.c_str(), textColor);
+        SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+
+        SDL_Rect textRect = {
+            rect.x + (BUTTON_WIDTH - textSurface->w)/2,
+            rect.y + (BUTTON_HEIGHT - textSurface->h)/2,
+            textSurface->w,
+            textSurface->h
+        };
+
+        SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
+
+        SDL_FreeSurface(textSurface);
+        SDL_DestroyTexture(textTexture);
+    }
+
+    bool isClicked(int mouseX, int mouseY) {
+        return (mouseX >= rect.x &&
+                mouseX <= rect.x + BUTTON_WIDTH &&
+                mouseY >= rect.y &&
+                mouseY <= rect.y + BUTTON_HEIGHT);
+    }
+};
+
+Button playAgainButton(300, 300, "Play Again");
+Button quitButton(300, 400, "Quit");
 
 
 bool init() {
@@ -582,10 +642,13 @@ bool init() {
     }
     player = new Player(playerX, playerY, idletex, runtex, walktex, attack1tex, jumptex);
 
-//    //set frame
-//    for (int i = 0; i < ANIMATION_FRAMES; ++i) {
-//        gSpriteClips[i] = { i * (FRAME_WIDTH), 0, FRAME_WIDTH, FRAME_HEIGHT };
-//    }
+    if(TTF_Init() == -1) {
+        cerr << "SDL_ttf could not initialize! Error: " << TTF_GetError() << endl;
+        return false;
+    }
+
+    gFont = TTF_OpenFont("Arial.ttf", 28);
+//    gFont = TTF_OpenFont();
 
     //load texture background
     bgTextures[SKY] = loadTexture("assets/Background/Sky.png");
@@ -610,10 +673,6 @@ SDL_Texture* loadTexture(const string &path) {
 }
 
 void renderBackground() {
-    // Xóa màn hình
-    SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, 255);
-    SDL_RenderClear(gRenderer);
-
     //render background
     SDL_RenderCopy(gRenderer, bgTextures[SKY], NULL, NULL);//sky
     SDL_RenderCopy(gRenderer, bgTextures[MIDDLE_LAYER], NULL, NULL);//middle layer
@@ -640,59 +699,48 @@ void renderDebug(SDL_Renderer* renderer) {
     }
 }
 
-bool checkCollision(const SDL_Rect& a, const SDL_Rect& b) {
-    return (a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y);
+void renderGameOverMenu() {
+
+    SDL_SetRenderDrawBlendMode(gRenderer, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, 200);
+    SDL_Rect overlay = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
+    SDL_RenderFillRect(gRenderer, &overlay);
+
+
+
+
+    SDL_Color textColor = {255, 0, 0};
+    SDL_Surface* textSurface = TTF_RenderText_Solid(gFont, "Game Over!", textColor);
+    SDL_Texture* textTexture = SDL_CreateTextureFromSurface(gRenderer, textSurface);
+    SDL_Rect textRect = {250, 200, textSurface->w, textSurface->h};
+    SDL_RenderCopy(gRenderer, textTexture, NULL, &textRect);
+
+
+
+    playAgainButton.render(gRenderer);
+    quitButton.render(gRenderer);
+
+
+
+    SDL_FreeSurface(textSurface);
+    SDL_DestroyTexture(textTexture);
 }
 
-void handlePlayerEnemyCollision(Player& player, Enemy& enemy) {
-    //vector
-    float dx = player.position.x - enemy.position.x;
-    float dy = player.position.y - enemy.position.y;
-    float length = sqrt(dx*dx + dy*dy);
+void handleGameOverInput(SDL_Event& e) {
+    if(e.type == SDL_MOUSEBUTTONDOWN) {
+        int mouseX, mouseY;
+        SDL_GetMouseState(&mouseX, &mouseY);
 
-
-    //after collision, pushing each other and only player takes damage
-    if (length != 0) {
-        float pushForce = 50.0f;
-        player.position.x += (dx/length) * pushForce;
-        player.position.y += (dy/length) * pushForce;
-    }
-
-    player.takeDamage(10);
-}
-
-void handleEnemyCollision(Enemy& enemy1, Enemy& enemy2) {
-    //vector
-    float dx = enemy1.position.x - enemy2.position.x;
-    float dy = enemy1.position.y - enemy2.position.y;
-    float length = sqrt(dx*dx + dy*dy);
-
-
-    if (length != 0) {
-        float pushForce = 2000.0f;
-        enemy1.position.x += (dx/length) * pushForce;
-        enemy1.position.y += (dy/length) * pushForce;
-        enemy2.position.x -= (dx/length) * pushForce;
-        enemy2.position.y -= (dy/length) * pushForce;
-    }
-
-}
-
-void checkAllCollision() {
-    //check player and enemy
-    for (auto& enemy : enemies) {
-        if (checkCollision(player->hitbox, enemy.hitbox)) {
-            handlePlayerEnemyCollision(*player, enemy);
+        if(playAgainButton.isClicked(mouseX, mouseY)) {
+            gameState = PLAYING;
+            player->reset();
+        }
+        else if(quitButton.isClicked(mouseX, mouseY)) {
+            exit(0);
         }
     }
-
-    //enemy and enemy
-    FOR(i, 0, (int)enemies.size() - 1)
-        FOR(j, i + 1, (int)enemies.size() - 1)
-            if (checkCollision(enemies[i].hitbox, enemies[j].hitbox)) {
-                handleEnemyCollision(enemies[i], enemies[j]);
-            }
 }
+
 
 // Xử lý input
 void handleInput() {
@@ -700,6 +748,9 @@ void handleInput() {
     while (SDL_PollEvent(&e)) {
         if (e.type == SDL_QUIT) {
             isRunning = false;
+        }
+        if(gameState == GAME_OVER) {
+            handleGameOverInput(e);
         }
 //        else if (e.type == SDL_KEYDOWN) {
 //            switch (e.key.keysym.scancode == SDL_SCANCODE_SPACE && (player ->canJump)) {
@@ -709,7 +760,6 @@ void handleInput() {
 //        }
     }
     const Uint8* keystates = SDL_GetKeyboardState(NULL);
-
     //handle running sstate
     bool isPressingShift = keystates[SDL_SCANCODE_LSHIFT];//only left shift
     player->isRunning = isPressingShift;
@@ -731,13 +781,23 @@ void handleInput() {
     if (keystates[SDL_SCANCODE_J]) {
         player->attack();
     }
-    if (keystates[SDL_SCANCODE_SPACE] && (player->canJump)) {
-        player->jump();
-        (player->jumpRequested) = 1;
+//    if (keystates[SDL_SCANCODE_SPACE] && (player->canJump)) {
+//        player->jump();
+//        (player->jumpRequested) = 1;
+////        player->velocity.y = -5;
+//    }
+    //debug gameover menu
+    if (keystates[SDL_SCANCODE_SPACE]) {
+        player->takeDamage(10.0f);
+//        (player->jumpRequested) = 1;
 //        player->velocity.y = -5;
     }
+
 //        cerr << playerX << " " << playerY << '\n';
 }
+
+
+
 
 void gameloop() {
     Uint32 lastTime = SDL_GetTicks();
@@ -758,13 +818,14 @@ void gameloop() {
             player->attackTimer = 0.0f;
         }
 
-        checkAllCollision();
+//        checkAllCollision();
 
 
         // Render
+        SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, 255);
         SDL_RenderClear(gRenderer);
         renderBackground();
-        renderDebug(gRenderer);
+//        renderDebug(gRenderer);
         player->renderStaminaBar(gRenderer);
         player->renderHealthPointBar(gRenderer);
         player->render(gRenderer);
@@ -772,7 +833,7 @@ void gameloop() {
             enemy.render(gRenderer);
         }
 
-
+        if(gameState == GAME_OVER) renderGameOverMenu();
         SDL_RenderPresent(gRenderer);
 
         cerr << (player->position.x) << " " << (player->position.y) << " " << (player->velocity.x) << " " << (player->stamina) <<  '\n';
@@ -791,8 +852,10 @@ void close() {
         SDL_DestroyTexture(bgTextures[i]);
         bgTextures[i] = nullptr;
     }
+    TTF_CloseFont(gFont);
     SDL_DestroyRenderer(gRenderer);
     SDL_DestroyWindow(gWindow);
+    TTF_Quit();
     SDL_Quit();
     IMG_Quit();
 }
