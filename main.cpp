@@ -45,13 +45,20 @@ const int ANIMATION_SPEED = 100;//milisecond;
 const int FRAME_RATE = 60;
 const int BUTTON_WIDTH = 200;
 const int BUTTON_HEIGHT = 50;
-
+const int PLATFORM_HEIGHT = 20;
+const int MAX_LEVEL = 5;
 SDL_Texture* loadTexture(const string &path);
 
 enum GameState {
     PLAYING,
     GAME_OVER
 };
+
+struct Platform {
+    SDL_Rect rect;
+    bool hasEnemy;
+};
+
 GameState gameState = PLAYING;
 
 //animation
@@ -328,7 +335,7 @@ enum class EnemyState {
 
 class Enemy : public Entity {
 public:
-    enum class Type { MINOTAUR, SKELETON, WEREWOLF, BLUESLIME, GREENSLIME};
+    enum class Type { MINOTAUR, SKELETON, WEREWOLF, BLUESLIME, GREENSLIME, last};
 
     bool isDead = 0;
 
@@ -558,6 +565,8 @@ SDL_Rect gSpriteClips[ANIMATION_FRAMES];
 int currentFrame = 0;
 Uint32 lastFrameTime = 0;
 vector<Enemy> enemies;
+vector<Platform> platforms;
+
 
 class Button {
 public:
@@ -600,6 +609,45 @@ public:
 
 Button playAgainButton(300, 300, "Play Again");
 Button quitButton(300, 400, "Quit");
+
+int currentLevel = 1;
+
+void GenerateLevel() {
+    platforms.clear();
+    enemies.clear();
+    srand(time(nullptr));
+//    Platform ground = {{0, 445, SCREEN_WIDTH, SCREEN_HEIGHT - 445}, false};
+//    platforms.pb(ground);
+
+    int numPlatforms = 4 + currentLevel;
+    int verticalSpacing = 128;
+    int currentY = SCREEN_HEIGHT - 200;
+    srand(time(NULL));
+    for(int i = 0; i < numPlatforms; i++) {
+        Platform p;
+        p.rect.w = 400;
+        p.rect.x = 50 + rand() % (SCREEN_WIDTH - p.rect.w - 100);
+        p.rect.y = currentY;
+        p.rect.h = PLATFORM_HEIGHT;
+        p.hasEnemy = (rand() % 3 == 0);
+
+        if(!(128 >= p.rect.x &&
+           player->position.x <= p.rect.x + p.rect.w &&
+           128 >= p.rect.y)) {
+            platforms.pb(p);
+        }
+
+        if(p.hasEnemy) {
+//            Enemy::Type enemytype = static_cast<Enemy::Type>(rand() % Enemy::Type::last);;
+            Enemy e = {p.rect.x + p.rect.w/2 - 128/2, p.rect.y - 128, Enemy::Type::WEREWOLF, player};
+            enemies.pb(e);
+        }
+
+        currentY -= verticalSpacing;
+        if(currentY < 100) break;
+    }
+}
+
 
 
 bool init() {
@@ -699,6 +747,50 @@ void renderDebug(SDL_Renderer* renderer) {
     }
 }
 
+bool CheckCollision(SDL_Rect b){
+    return (player->position.x < b.x + b.w &&
+            player->position.x + 100 > b.x &&
+            player->position.y < b.y + b.h &&
+            player->position.y + 128 > b.y);
+}
+
+bool CheckCollisionEnemy(Enemy e, SDL_Rect b){
+    return (e.position.x < b.x + b.w &&
+            e.position.x + 100 > b.x &&
+            e.position.y < b.y + b.h &&
+            e.position.y + 128 > b.y);
+}
+
+void HandleCollisions() {
+    for(auto& p : platforms) {
+        if(CheckCollision(p.rect)) {
+            if(player->position.y + 128 > p.rect.y &&
+               player->position.y + 128 < p.rect.y + p.rect.h) {
+                player->position.y = p.rect.y - 128;
+                player->velocity.y = 0;
+                player->canJump = 1;
+                player->jumpRequested = 0;
+            }
+            else if(player->position.y < p.rect.y + p.rect.h) {
+                player->velocity.y *= -0.5;
+            }
+        }
+        for(auto &e : enemies){
+            if(CheckCollisionEnemy(e, p.rect)){
+                if(e.position.y + 128 > p.rect.y &&
+                   e.position.y + 128 < p.rect.y + p.rect.h) {
+                    e.position.y = p.rect.y - 128;
+                    e.velocity.y = 0;
+                }
+                else if(e.position.y < p.rect.y + p.rect.h) {
+                    e.velocity.y *= -0.5;
+                }
+            }
+        }
+    }
+}
+
+
 void renderGameOverMenu() {
 
     SDL_SetRenderDrawBlendMode(gRenderer, SDL_BLENDMODE_BLEND);
@@ -734,6 +826,9 @@ void handleGameOverInput(SDL_Event& e) {
         if(playAgainButton.isClicked(mouseX, mouseY)) {
             gameState = PLAYING;
             player->reset();
+            currentLevel = 1;
+            player->position.x = 0;
+            player->position.y = 445;
         }
         else if(quitButton.isClicked(mouseX, mouseY)) {
             exit(0);
@@ -781,17 +876,17 @@ void handleInput() {
     if (keystates[SDL_SCANCODE_J]) {
         player->attack();
     }
-//    if (keystates[SDL_SCANCODE_SPACE] && (player->canJump)) {
-//        player->jump();
-//        (player->jumpRequested) = 1;
-////        player->velocity.y = -5;
-//    }
-    //debug gameover menu
-    if (keystates[SDL_SCANCODE_SPACE]) {
-        player->takeDamage(10.0f);
-//        (player->jumpRequested) = 1;
+    if (keystates[SDL_SCANCODE_SPACE] && (player->canJump)) {
+        player->jump();
+        (player->jumpRequested) = 1;
 //        player->velocity.y = -5;
     }
+    //debug gameover menu
+//    if (keystates[SDL_SCANCODE_SPACE]) {
+//        player->takeDamage(10.0f);
+//        (player->jumpRequested) = 1;
+//        player->velocity.y = -5;
+//    }
 
 //        cerr << playerX << " " << playerY << '\n';
 }
@@ -800,6 +895,7 @@ void handleInput() {
 
 
 void gameloop() {
+    GenerateLevel();
     Uint32 lastTime = SDL_GetTicks();
     while (isRunning) {
         Uint32 currentTime = SDL_GetTicks();
@@ -817,7 +913,7 @@ void gameloop() {
         if(player->attackTimer >= player->attackCooldown){
             player->attackTimer = 0.0f;
         }
-
+        HandleCollisions();
 //        checkAllCollision();
 
 
@@ -825,10 +921,19 @@ void gameloop() {
         SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, 255);
         SDL_RenderClear(gRenderer);
         renderBackground();
+
 //        renderDebug(gRenderer);
+        SDL_SetRenderDrawColor(gRenderer, 139, 69, 19, 255);
+        for(auto& p : platforms) {
+            SDL_RenderFillRect(gRenderer, &p.rect);
+        }
+
         player->renderStaminaBar(gRenderer);
         player->renderHealthPointBar(gRenderer);
         player->render(gRenderer);
+
+
+
         for (auto& enemy : enemies) {
             enemy.render(gRenderer);
         }
