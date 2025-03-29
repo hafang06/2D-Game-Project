@@ -1,6 +1,7 @@
-        #include <SDL.h>
+#include <SDL.h>
 #include<SDL_image.h>
 #include<SDL_ttf.h>
+#include<SDL_mixer.h>
 #include <bits/stdc++.h>
 #define FOR(i, a, b) for(int i = (a); i <= (b); i++)
 #define FORD(i, a, b) for(int i = (a); i >= (b); i--)
@@ -46,7 +47,7 @@ const int FRAME_RATE = 60;
 const int BUTTON_WIDTH = 200;
 const int BUTTON_HEIGHT = 50;
 const int PLATFORM_HEIGHT = 20;
-const int MAX_LEVEL = 5;
+const int MAX_LEVEL = 9;
 SDL_Texture* loadTexture(const string &path);
 
 enum GameState {
@@ -165,7 +166,7 @@ public:
 
     float attackTimer = 0.0f;
     float attackR = 100.0f;
-    float attackCooldown = 0.7f;
+    float attackCooldown = 0.5f;
     float attackDamage = 30.0f;
     float health = 100.0f;
 
@@ -181,6 +182,7 @@ public:
 //        animations["defend"] = Animation(nullptr, FRAME_WIDTH, FRAME_HEIGHT, 5, 50, 0);
 
     }
+
     void update(float deltaTime) override {
         //updtae logic
 //        jumpVelocity = (2.0 * JUMP_HEIGHT)/JUMP_DURATION - (Gravity * JUMP_DURATION)/2;
@@ -649,7 +651,7 @@ void GenerateLevel() {
             }
             if(currentLevel == 3)e = {p.rect.x + p.rect.w/2 - 128/2, p.rect.y - 128, Enemy::Type::WEREWOLF, player};
             if(currentLevel == 4)e = {p.rect.x + p.rect.w/2 - 128/2, p.rect.y - 128, Enemy::Type::SKELETON, player};
-            if(currentLevel == 5)e = {p.rect.x + p.rect.w/2 - 128/2, p.rect.y - 128, Enemy::Type::MINOTAUR, player};
+            if(currentLevel >= 5)e = {p.rect.x + p.rect.w/2 - 128/2, p.rect.y - 128, Enemy::Type::MINOTAUR, player};
             e.attackDamage += currentLevel;
             enemies.pb(e);
         }
@@ -657,6 +659,8 @@ void GenerateLevel() {
         currentY -= verticalSpacing;
         if(currentY < 100) break;
     }
+    player->position.x = playerX;
+    player->position.y = playerY;
 }
 
 
@@ -673,6 +677,17 @@ bool init() {
         cerr << "SDL_image could not initialize! Error: " << IMG_GetError() << endl;
         return false;
     }
+
+    if(SDL_Init(SDL_INIT_AUDIO) < 0){
+        cerr << "SDL_Audio could not initialize! Error: " << endl;
+        return 0;
+    }
+    if(Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0){
+        cerr << "Could not open audio " << Mix_GetError() << endl;
+
+    }
+
+     // Hoặc file WAV
 
     gWindow = SDL_CreateWindow("Monster Slayer",
                               SDL_WINDOWPOS_UNDEFINED,
@@ -801,6 +816,8 @@ void HandleCollisions() {
     }
 }
 
+bool isEnd = 0;
+
 void renderGameOverMenu() {
 
     SDL_SetRenderDrawBlendMode(gRenderer, SDL_BLENDMODE_BLEND);
@@ -808,11 +825,12 @@ void renderGameOverMenu() {
     SDL_Rect overlay = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
     SDL_RenderFillRect(gRenderer, &overlay);
 
-
+    string s = "Game Over!";
+    if(isEnd) s = "YOU WON!";
 
 
     SDL_Color textColor = {255, 0, 0};
-    SDL_Surface* textSurface = TTF_RenderText_Solid(gFont, "Game Over!", textColor);
+    SDL_Surface* textSurface = TTF_RenderText_Solid(gFont, s.c_str(), textColor);
     SDL_Texture* textTexture = SDL_CreateTextureFromSurface(gRenderer, textSurface);
     SDL_Rect textRect = {250, 200, textSurface->w, textSurface->h};
     SDL_RenderCopy(gRenderer, textTexture, NULL, &textRect);
@@ -837,6 +855,7 @@ void handleGameOverInput(SDL_Event& e) {
             gameState = PLAYING;
             player->reset();
             currentLevel = 1;
+            isEnd = 0;
             GenerateLevel();
             player->position.x = 0;
             player->position.y = 445;
@@ -876,6 +895,8 @@ void RenderLevelComplete() {
     SDL_FreeSurface(textSurface);
     SDL_DestroyTexture(textTexture);
 }
+
+
 
 // Xử lý input
 void handleInput() {
@@ -950,6 +971,7 @@ void gameloop() {
                 if(currentLevel > MAX_LEVEL) {
                     // Hiển thị màn hình kết thúc game
                     gameState = GAME_OVER;
+                    isEnd = 1;
                 } else {
                     GenerateLevel();
                     levelCompleted = false;
@@ -970,8 +992,10 @@ void gameloop() {
         }
         HandleCollisions();
 //        checkAllCollision();
-
-
+//       Mix_Chunk *runSound = Mix_LoadWAV("assets/running_sound.mp3");
+//        if(player->isRunning){
+//            Mix_PlayChannel(0, runSound, 0);
+//        }
         // Render
         SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, 255);
         SDL_RenderClear(gRenderer);
@@ -986,7 +1010,7 @@ void gameloop() {
         player->renderStaminaBar(gRenderer);
         player->renderHealthPointBar(gRenderer);
         player->render(gRenderer);
-
+//        Mix_FreeChunk(runSound);
 
 
         for (auto& enemy : enemies) {
@@ -995,7 +1019,7 @@ void gameloop() {
 
         if(gameState == GAME_OVER) renderGameOverMenu();
 
-        if(levelCompleted)RenderLevelComplete();
+        if(levelCompleted && gameState != GAME_OVER)RenderLevelComplete();
 
         SDL_RenderPresent(gRenderer);
 
@@ -1015,6 +1039,8 @@ void close() {
         SDL_DestroyTexture(bgTextures[i]);
         bgTextures[i] = nullptr;
     }
+
+    Mix_CloseAudio();
     TTF_CloseFont(gFont);
     SDL_DestroyRenderer(gRenderer);
     SDL_DestroyWindow(gWindow);
