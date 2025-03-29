@@ -567,6 +567,8 @@ Uint32 lastFrameTime = 0;
 vector<Enemy> enemies;
 vector<Platform> platforms;
 
+bool levelCompleted = 0;
+float levelCompleteTimer = 0.0f;
 
 class Button {
 public:
@@ -790,7 +792,6 @@ void HandleCollisions() {
     }
 }
 
-
 void renderGameOverMenu() {
 
     SDL_SetRenderDrawBlendMode(gRenderer, SDL_BLENDMODE_BLEND);
@@ -836,6 +837,35 @@ void handleGameOverInput(SDL_Event& e) {
     }
 }
 
+void CheckLevelCompletion() {
+    bool ok = 1;
+    for(Enemy e:enemies){
+        if(!(e.isDead)) ok =0;
+    }
+
+    if(ok && !levelCompleted) {
+        levelCompleted = true;
+        levelCompleteTimer = 2.0f;
+    }
+}
+
+void RenderLevelComplete() {
+    SDL_Color textColor = {0, 255, 0, 255};
+    SDL_Surface* textSurface = TTF_RenderText_Solid(gFont, ("Level " + to_string(currentLevel) + " Completed!").c_str(), textColor);
+    SDL_Texture* textTexture = SDL_CreateTextureFromSurface(gRenderer, textSurface);
+
+    SDL_Rect textRect = {
+        SCREEN_WIDTH/2 - textSurface->w/2,
+        SCREEN_HEIGHT/2 - textSurface->h/2,
+        textSurface->w,
+        textSurface->h
+    };
+
+    SDL_RenderCopy(gRenderer, textTexture, NULL, &textRect);
+
+    SDL_FreeSurface(textSurface);
+    SDL_DestroyTexture(textTexture);
+}
 
 // Xử lý input
 void handleInput() {
@@ -902,6 +932,21 @@ void gameloop() {
         float deltaTime = (currentTime - lastTime) / 1000.0;
         lastTime = currentTime;
 
+        CheckLevelCompletion();
+        if(levelCompleted) {
+            levelCompleteTimer -= deltaTime;
+            if(levelCompleteTimer <= 0) {
+                currentLevel++;
+                if(currentLevel > MAX_LEVEL) {
+                    // Hiển thị màn hình kết thúc game
+                    gameState = GAME_OVER;
+                } else {
+                    GenerateLevel();
+                    levelCompleted = false;
+                }
+            }
+        }
+
         handleInput();
 
         //update all entity
@@ -939,6 +984,9 @@ void gameloop() {
         }
 
         if(gameState == GAME_OVER) renderGameOverMenu();
+
+        if(levelCompleted)RenderLevelComplete();
+
         SDL_RenderPresent(gRenderer);
 
         cerr << (player->position.x) << " " << (player->position.y) << " " << (player->velocity.x) << " " << (player->stamina) <<  '\n';
