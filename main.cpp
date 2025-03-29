@@ -165,7 +165,7 @@ public:
 
     float attackTimer = 0.0f;
     float attackR = 100.0f;
-    float attackCooldown = 1.0f;
+    float attackCooldown = 0.7f;
     float attackDamage = 30.0f;
     float health = 100.0f;
 
@@ -173,12 +173,12 @@ public:
         animations["idle"] = Animation(idleTex, 66, FRAME_HEIGHT, ANIMATION_FRAMES, ANIMATION_SPEED);
         animations["run"] = Animation(runTex, 98, FRAME_HEIGHT, 7, ANIMATION_SPEED);
         animations["walk"] = Animation(walkTex, 65, FRAME_HEIGHT, 8, ANIMATION_SPEED);
-        animations["attack1"] = Animation(attack1Tex, 96, FRAME_HEIGHT, 5, 70);
+        animations["attack1"] = Animation(attack1Tex, 96, FRAME_HEIGHT, 5, 100);
         animations["jump"] = Animation(jumpTex, 88, FRAME_HEIGHT, 6, 60);
         animations["dead"] = Animation(loadTexture("assets/MAIN_knight/Spritesheet 128/Knight_1/Dead.png"), FRAME_WIDTH, FRAME_HEIGHT, 6, 100);
-        animations["attack2"] = Animation(nullptr, FRAME_WIDTH, FRAME_HEIGHT, 4, 50, 0);
-        animations["attack3"] = Animation(nullptr, FRAME_WIDTH, FRAME_HEIGHT, 4, 50, 0);
-        animations["defend"] = Animation(nullptr, FRAME_WIDTH, FRAME_HEIGHT, 5, 50, 0);
+//        animations["attack2"] = Animation(nullptr, FRAME_WIDTH, FRAME_HEIGHT, 4, 50, 0);
+//        animations["attack3"] = Animation(nullptr, FRAME_WIDTH, FRAME_HEIGHT, 4, 50, 0);
+//        animations["defend"] = Animation(nullptr, FRAME_WIDTH, FRAME_HEIGHT, 5, 50, 0);
 
     }
     void update(float deltaTime) override {
@@ -449,7 +449,6 @@ public:
             isDead = 1;
         }
     }
-private:
     void updateWandering(float deltaTime) {
         if(distanceToPlayer < detectionR) {
             state = EnemyState::CHASING;
@@ -528,7 +527,7 @@ private:
     float stateTimer;
     float attackTimer = 0.0f;
     float attackCooldown = 1.5f;
-    float attackDamage = 10.0f;
+    float attackDamage = 1.0f;
     float distanceToPlayer = 0.0f;
     float health = 100.0;
 };
@@ -625,13 +624,13 @@ void GenerateLevel() {
     int verticalSpacing = 128;
     int currentY = SCREEN_HEIGHT - 200;
     srand(time(NULL));
-    for(int i = 0; i < numPlatforms; i++) {
+    for(int i = 1; i < numPlatforms; i++) {
         Platform p;
-        p.rect.w = 400;
+        p.rect.w = 500;
         p.rect.x = 50 + rand() % (SCREEN_WIDTH - p.rect.w - 100);
         p.rect.y = currentY;
         p.rect.h = PLATFORM_HEIGHT;
-        p.hasEnemy = (rand() % 3 == 0);
+        p.hasEnemy = (rand() % (5-currentLevel) == 0);
 
         if(!(128 >= p.rect.x &&
            player->position.x <= p.rect.x + p.rect.w &&
@@ -641,7 +640,17 @@ void GenerateLevel() {
 
         if(p.hasEnemy) {
 //            Enemy::Type enemytype = static_cast<Enemy::Type>(rand() % Enemy::Type::last);;
-            Enemy e = {p.rect.x + p.rect.w/2 - 128/2, p.rect.y - 128, Enemy::Type::WEREWOLF, player};
+            Enemy e = {0, 0, Enemy::Type::MINOTAUR, player};
+            if(currentLevel < 3){
+                e = {p.rect.x + p.rect.w/3 - 128/2, p.rect.y - 128, Enemy::Type::BLUESLIME, player};
+                enemies.pb(e);
+                e = {p.rect.x + p.rect.w/2 - 128/2, p.rect.y - 128, Enemy::Type::GREENSLIME, player};
+                enemies.pb(e);
+            }
+            if(currentLevel == 3)e = {p.rect.x + p.rect.w/2 - 128/2, p.rect.y - 128, Enemy::Type::WEREWOLF, player};
+            if(currentLevel == 4)e = {p.rect.x + p.rect.w/2 - 128/2, p.rect.y - 128, Enemy::Type::SKELETON, player};
+            if(currentLevel == 5)e = {p.rect.x + p.rect.w/2 - 128/2, p.rect.y - 128, Enemy::Type::MINOTAUR, player};
+            e.attackDamage += currentLevel;
             enemies.pb(e);
         }
 
@@ -828,6 +837,7 @@ void handleGameOverInput(SDL_Event& e) {
             gameState = PLAYING;
             player->reset();
             currentLevel = 1;
+            GenerateLevel();
             player->position.x = 0;
             player->position.y = 445;
         }
