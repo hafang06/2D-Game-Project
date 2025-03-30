@@ -632,7 +632,7 @@ void GenerateLevel() {
         p.rect.x = 50 + rand() % (SCREEN_WIDTH - p.rect.w - 100);
         p.rect.y = currentY;
         p.rect.h = PLATFORM_HEIGHT;
-        p.hasEnemy = (rand() % (5-currentLevel) == 0);
+        p.hasEnemy = (rand() % (MAX_LEVEL-currentLevel) == 0);
 
         if(!(128 >= p.rect.x &&
            player->position.x <= p.rect.x + p.rect.w &&
