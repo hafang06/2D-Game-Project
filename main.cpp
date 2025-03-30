@@ -47,7 +47,7 @@ const int FRAME_RATE = 60;
 const int BUTTON_WIDTH = 200;
 const int BUTTON_HEIGHT = 50;
 const int PLATFORM_HEIGHT = 20;
-const int MAX_LEVEL = 9;
+const int MAX_LEVEL = 5;
 SDL_Texture* loadTexture(const string &path);
 
 enum GameState {
@@ -632,7 +632,7 @@ void GenerateLevel() {
         p.rect.x = 50 + rand() % (SCREEN_WIDTH - p.rect.w - 100);
         p.rect.y = currentY;
         p.rect.h = PLATFORM_HEIGHT;
-        p.hasEnemy = (rand() % (MAX_LEVEL-currentLevel) == 0);
+        p.hasEnemy = (rand() % (MAX_LEVEL-currentLevel + 1) == 0);
 
         if(!(128 >= p.rect.x &&
            player->position.x <= p.rect.x + p.rect.w &&
