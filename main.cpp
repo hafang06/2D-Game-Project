@@ -44,10 +44,10 @@ const int FRAME_HEIGHT = 128;
 const int ANIMATION_FRAMES = 4;
 const int ANIMATION_SPEED = 100;//milisecond;
 const int FRAME_RATE = 60;
-const int BUTTON_WIDTH = 200;
+const int BUTTON_WIDTH = 500;
 const int BUTTON_HEIGHT = 50;
 const int PLATFORM_HEIGHT = 20;
-const int MAX_LEVEL = 5;
+const int MAX_LEVEL = 2;
 SDL_Texture* loadTexture(const string &path);
 
 enum GameState {
@@ -551,6 +551,7 @@ SDL_Window* gWindow = nullptr;
 SDL_Renderer* gRenderer = nullptr;
 //SDL_Texture* gPlayerTexture = nullptr;
 SDL_Texture* bgTextures[LAYER_COUNT];
+SDL_Texture* menuBackground = nullptr;
 TTF_Font* gFont = nullptr;
 
 Player* player = nullptr;
@@ -710,6 +711,7 @@ bool init() {
     SDL_Texture* attack1tex = loadTexture("assets/MAIN_knight/Spritesheet 128/Knight_1/Attack 1.png");
     SDL_Texture* runtex = loadTexture("assets/MAIN_knight/Spritesheet 128/Knight_1/Run.png");
     SDL_Texture* jumptex = loadTexture("assets/MAIN_knight/Spritesheet 128/Knight_1/Jump.png");
+    menuBackground = loadTexture("assets/Menu_Background_Blur.png");
     if(!idletex || !walktex || !attack1tex || !runtex){
         cerr << "Failed to load player texture\n";
         return 0;
@@ -1030,6 +1032,55 @@ void gameloop() {
     }
 }
 
+//Start Menu
+Button playButton = {400, 300, "Play"};
+Button quitMenu = {400, 400, "Quit"};
+
+bool inMenu = 1;
+
+void handleMouseMenu(SDL_Event& e){
+    if (e.type == SDL_MOUSEBUTTONDOWN) {
+        int x, y;
+        SDL_GetMouseState(&x, &y);
+
+        if(playButton.isClicked(x, y)){
+            inMenu = 0;
+        }
+        else if(quitMenu.isClicked(x, y)){
+            exit(0);
+        }
+    }
+}
+
+void menuloop(){
+    while(inMenu & isRunning){
+        SDL_Event e;
+        while (SDL_PollEvent(&e)) {
+            if (e.type == SDL_QUIT) {
+                isRunning = 0;
+            }
+            handleMouseMenu(e);
+        }
+        SDL_RenderClear(gRenderer);
+        SDL_RenderCopy(gRenderer, menuBackground, NULL, NULL);
+
+        SDL_Color textColor = {255, 215, 0, 255};
+        SDL_Surface* titleSurface = TTF_RenderText_Solid(gFont, "Monster Slayer", textColor);
+        SDL_Texture* titleTexture = SDL_CreateTextureFromSurface(gRenderer, titleSurface);
+        SDL_Rect titleRect = {450, 100, 400, 100};
+        SDL_RenderCopy(gRenderer, titleTexture, NULL, &titleRect);
+
+        playButton.render(gRenderer);
+        quitMenu.render(gRenderer);
+
+        SDL_RenderPresent(gRenderer);
+
+        SDL_FreeSurface(titleSurface);
+        SDL_DestroyTexture(titleTexture);
+    }
+
+}
+
 // Dọn dẹp tài nguyên
 void close() {
 //    SDL_DestroyTexture(gPlayerTexture);
@@ -1054,7 +1105,10 @@ int main(int argc, char* args[]) {
         cerr << "Failed to initialize!" << endl;
         return -1;
     }
-    enemies.pb({473, 445, Enemy::Type::WEREWOLF, player});
+//    enemies.pb({473, 445, Enemy::Type::WEREWOLF, player});
+
+    menuloop();
+
     // Vòng lặp game chính
     gameloop();
 
