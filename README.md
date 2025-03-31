@@ -7,7 +7,7 @@ MSV: 24020267
 
 Chủ đề của game: Game tiêu diệt quái vật đơn giản
 
-Ngưỡng điểm xứng đáng: 8.5-9
+Ngưỡng điểm xứng đáng: 9-10
 
 +Game được có các tính năng như có chuyển động của nhân vật và quái vật: các chuyển động chi tiết khi đứng yên, di chuyển, tấn công
 
