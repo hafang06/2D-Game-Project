@@ -167,7 +167,7 @@ public:
     float attackTimer = 0.0f;
     float attackR = 100.0f;
     float attackCooldown = 0.5f;
-    float attackDamage = 30.0f;
+    float attackDamage = 100.0f;
     float health = 100.0f;
 
     Player(int x, int y, SDL_Texture* idleTex, SDL_Texture* runTex, SDL_Texture* walkTex, SDL_Texture* attack1Tex, SDL_Texture* jumpTex): Entity(x, y){
@@ -534,7 +534,352 @@ public:
     float health = 100.0;
 };
 
+Player* player = nullptr;
+SDL_Texture* meteorTexture = nullptr;
+class Meteor: public Entity{
+public:
+    Meteor(int x, int y)
+        : Entity(x, y) {
 
+        SDL_Point direction = {
+            target.x - position.x,
+            target.y - position.y
+        };
+
+        float length = sqrt(direction.x * direction.x + direction.y * direction.y);
+        velocity.y = 200 * speed;
+
+        updateHitbox();
+    }
+
+    void update(float deltaTime) override {
+        position.y += 5000 * deltaTime;
+
+        if (SDL_HasIntersection(&hitbox, &player->hitbox)) {
+            player->takeDamage(15.0f);
+            shouldDestroy = true;
+        }
+
+        if (position.y > SCREEN_HEIGHT + 100) {
+            shouldDestroy = true;
+        }
+        updateHitbox();
+//        animations[currentAnim].update();
+    }
+
+    void render(SDL_Renderer* renderer) override {
+        SDL_Rect bgRect = {hitbox.x, hitbox.y, hitbox.w, hitbox.h};
+        SDL_SetRenderDrawColor(renderer, 199, 0, 60, 255);
+        SDL_RenderFillRect(renderer, &bgRect);
+//        SDL_RenderFillRect(renderer, &healthRect);
+//        SDL_RenderCopy();
+    }
+
+    bool shouldDestroy = false;
+
+private:
+    SDL_Point target;
+    const float speed = 300.0f;
+};
+
+float RandomRange(float min, float max) {
+    return min + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX/(max - min)));
+}
+
+class Boss: public Entity {
+public:
+    vector<Meteor*> activeMeteors;
+    float meteorDuration = 0.0f;
+    bool isDead = 0;
+
+    Boss(int x, int y)
+        : Entity(x, y) {
+        maxHealth = 1000;
+        currentHealth = maxHealth;
+        currentPhase = 1;
+        animations["idle"] = Animation(loadTexture("assets/CREP_Minotaur/Minotaur_2/Idle.png"), 115, 128, 10, 100);
+        animations["attack"] = Animation(loadTexture("assets/CREP_Minotaur/Minotaur_2/Attack.png"), 128, 128, 5, 200);
+        animations["walk"] = Animation(loadTexture("assets/CREP_Minotaur/Minotaur_2/Walk.png"), 128, 128, 12, 100);
+        meteorTexture = loadTexture("assets/Rock_Second Phase Boss's Skill.png");
+        setAnimation("walk");
+        updateHitbox();
+    }
+
+    void updateTakingDamage(float damage, float distanceToPlayer){
+        if(distanceToPlayer < (player->attackR)
+                        &&
+        (player->attackTimer) >= (player->attackCooldown)) takeDamage(damage);
+    }
+
+    void update(float deltaTime) override {
+        updatePhase();
+        updateAttack(deltaTime);
+        if(currentHealth <= 0){
+            animations[currentAnim].isLooping = 0;
+            animations[currentAnim].isPlaying = 0;
+            position = {SCREEN_WIDTH/2, 445};
+            isDead = 1;
+        }
+        SDL_Point direction = {
+            player->position.x - position.x,
+            player->position.y - position.y
+        };
+
+        float length = sqrt(direction.x * direction.x + direction.y * direction.y);
+        updateTakingDamage(player->attackDamage, length);
+        if(length > attackR){
+            setAnimation("walk");
+        }
+        animations[currentAnim].update();
+    }
+
+    void render(SDL_Renderer* renderer) override {
+        Animation& anim = animations[currentAnim];
+        //flip the texture
+        float difx = player->position.x - position.x;
+        flipHorizontal = (difx < 0);
+        SDL_RendererFlip flip = flipHorizontal ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
+        SDL_Rect destRect = {position.x, position.y, anim.frameWidth, anim.frameHeight};
+        SDL_Point pivot = {0, 0};
+//        if (flip) {
+//            destRect.x -= anim.frameWidth;
+//        }
+        SDL_RenderCopyEx(renderer, anim.texture, &anim.frames[anim.currentFrame], &destRect,0.0,&pivot,flip);
+        for (auto& meteor : activeMeteors) {
+            meteor->render(renderer);
+        }
+    }
+    void renderHealthBar(SDL_Renderer* renderer){
+        SDL_Rect bgRect = {400, 600, 500, 20};
+        SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255);
+        SDL_RenderFillRect(renderer, &bgRect);
+
+        SDL_Rect healthRect = {402, 602, (int)(496 * (currentHealth/1000.0f)), 16};
+        SDL_SetRenderDrawColor(renderer, 199, 0, 60, 255);
+        SDL_RenderFillRect(renderer, &healthRect);
+    }
+    void takeDamage(int damage) {
+        currentHealth -= damage;
+        if (currentHealth < 0) currentHealth = 0;
+    }
+
+
+    bool isMeteorActive = false;
+private:
+
+    int currentPhase = 1;
+    int maxHealth = 1000;
+    int currentHealth = 1000;
+
+    // Attack timers
+    float attackR = 50.0f;
+    float basicAttackCooldown = 2.0f;
+    float teleportCooldown = 5.0f;
+    float meteorCooldown = 10.0f;
+
+
+    void setAnimation(const string& animName) {
+        if (currentAnim != animName) {
+            currentAnim = animName;
+            animations[animName].reset();
+            animations[animName].play();
+        }
+    }
+    void updatePhase() {
+//        if (currentPhase >= 3) return;
+
+        if (currentHealth < maxHealth * 0.66f && currentPhase == 1) {
+            currentPhase = 2;
+        }
+//        else if (currentHealth < maxHealth * 0.33f && currentPhase == 2) {
+//            currentPhase = 3;
+//        }
+    }
+    void updateAttack(float deltaTime) {
+        switch (currentPhase) {
+            case 1:
+                phase1Behavior(deltaTime);
+                break;
+            case 2:
+                phase2Behavior(deltaTime);
+                break;
+//            case 3:
+//                phase3Behavior(deltaTime);
+//                break;
+        }
+    }
+
+    void phase1Behavior(float deltaTime) {
+
+        SDL_Point direction = {
+            player->position.x - position.x,
+            player->position.y - position.y
+        };
+
+        float length = sqrt(direction.x * direction.x + direction.y * direction.y);
+        if (length > 0) {
+            velocity.x = (direction.x / length) * 100;
+            velocity.y = (direction.y / length) * 100;
+        }
+        velocity.y = max(velocity.y, 0);
+
+
+        basicAttackCooldown -= deltaTime;
+        if(length < attackR){
+            velocity = {0, 0};
+            if (basicAttackCooldown <= 0) {
+                performBasicAttack();
+                player->takeDamage(5.0f);
+                basicAttackCooldown = 2.0f;
+            }
+
+        }
+        position.x += velocity.x * deltaTime;
+        position.y += velocity.y * deltaTime;
+    }
+
+    void phase2Behavior(float deltaTime) {
+        SDL_Point direction = {
+            player->position.x - position.x,
+            player->position.y - position.y
+        };
+
+        float length = sqrt(direction.x * direction.x + direction.y * direction.y);
+        if (length > 0) {
+            velocity.x = (direction.x / length) * 100;
+            velocity.y = (direction.y / length) * 100;
+        }
+        velocity.y = max(velocity.y, 0);
+
+
+
+        basicAttackCooldown -= deltaTime;
+        if(length < attackR){
+            velocity = {0, 0};
+            if (basicAttackCooldown <= 0) {
+                performBasicAttack();
+                player->takeDamage(5.0f);
+                basicAttackCooldown = 2.0f;
+            }
+
+        }
+
+        teleportCooldown -= deltaTime;
+        if (teleportCooldown <= 0) {
+            teleportToPlayer();
+            teleportCooldown = 3.0f;
+        }
+        position.x += velocity.x * deltaTime;
+        position.y += velocity.y * deltaTime;
+    }
+
+    void phase3Behavior(float deltaTime) {
+        SDL_Point direction = {
+            player->position.x - position.x,
+            player->position.y - position.y
+        };
+
+        float length = sqrt(direction.x * direction.x + direction.y * direction.y);
+        if (length > 0 && (!isMeteorActive)) {
+            velocity.x = (direction.x / length) * 100;
+            velocity.y = (direction.y / length) * 100;
+        }
+        velocity.y = max(velocity.y, 0);
+
+
+
+        basicAttackCooldown -= deltaTime;
+        if(length < attackR){
+            velocity = {0, 0};
+            if (basicAttackCooldown <= 0) {
+                performBasicAttack();
+                player->takeDamage(5.0f);
+                basicAttackCooldown = 2.0f;
+            }
+
+        }
+
+        teleportCooldown -= deltaTime;
+        if (teleportCooldown <= 0 && !isMeteorActive) {
+            teleportToPlayer();
+            teleportCooldown = 2.0f;
+        }
+
+
+        meteorCooldown -= deltaTime;
+        if (meteorCooldown <= 0 && !isMeteorActive) {
+            triggerMeteorShower();
+            meteorDuration = 4;
+            meteorCooldown = 4.0f;
+        }
+
+
+        if (isMeteorActive) {
+            updateMeteors(deltaTime);
+            spawnTimer = 0;
+            velocity = {0, 0};
+        }
+        position.x += velocity.x * deltaTime;
+        position.y += velocity.y * deltaTime;
+    }
+
+    void performBasicAttack() {
+        setAnimation("attack");
+        velocity = {0, 0};
+    }
+
+    void teleportToPlayer() {
+        int offsetX = (rand() % 200) - 100;
+//        int offsetY = (rand() % 200) - 100;
+        position.x = player->position.x + offsetX;
+        position.y = player->position.y;
+    }
+
+    void triggerMeteorShower() {
+        //teleport to middle
+        position.x = SCREEN_WIDTH/2 - 64;
+        position.y = 0;
+
+        isMeteorActive = true;
+        setAnimation("attack");
+
+    }
+
+    float spawnTimer = 0.0f;
+    void updateMeteors(float deltaTime) {
+
+        if (isMeteorActive) {
+            spawnTimer += deltaTime;
+
+            if (spawnTimer >= RandomRange(0.1f, 0.3f)) {
+                int spawnX = RandomRange(50, SCREEN_WIDTH - 50);
+
+                activeMeteors.pb(new Meteor(spawnX, 0));
+                spawnTimer = 0.0f;
+            }
+
+
+            meteorDuration -= deltaTime;
+            if (meteorDuration <= 0) {
+                isMeteorActive = false;
+            }
+        }
+
+
+        auto it = activeMeteors.begin();
+        while (it != activeMeteors.end()) {
+            (*it)->update(deltaTime);
+
+            if ((*it)->shouldDestroy) {
+                delete *it;
+                it = activeMeteors.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+
+};
 
 //background
 enum BackgroundLayers {
@@ -554,7 +899,7 @@ SDL_Texture* bgTextures[LAYER_COUNT];
 SDL_Texture* menuBackground = nullptr;
 TTF_Font* gFont = nullptr;
 
-Player* player = nullptr;
+
 
 bool isRunning = true;
 
@@ -847,7 +1192,7 @@ void renderGameOverMenu() {
     SDL_FreeSurface(textSurface);
     SDL_DestroyTexture(textTexture);
 }
-
+bool isLastLevel = 0;
 void handleGameOverInput(SDL_Event& e) {
     if(e.type == SDL_MOUSEBUTTONDOWN) {
         int mouseX, mouseY;
@@ -861,6 +1206,9 @@ void handleGameOverInput(SDL_Event& e) {
             GenerateLevel();
             player->position.x = 0;
             player->position.y = 445;
+            if(isLastLevel){
+                isLastLevel = 0;
+            }
         }
         else if(quitButton.isClicked(mouseX, mouseY)) {
             exit(0);
@@ -955,12 +1303,58 @@ void handleInput() {
 }
 
 
+Boss* boss = nullptr;;
 
+
+void LastLevelLoop(){
+    Uint32 lastTime = SDL_GetTicks();
+    while(isRunning){
+        Uint32 currentTime = SDL_GetTicks();
+        float deltaTime = (currentTime - lastTime) / 1000.0;
+        lastTime = currentTime;
+
+        if(boss->isDead){
+            gameState = GAME_OVER;
+            isEnd = 1;
+        }
+        handleInput();
+
+        //update all entity
+        player->update(deltaTime);
+        boss->update(deltaTime);
+
+        if(player->attackTimer >= player->attackCooldown){
+            player->attackTimer = 0.0f;
+        }
+        // Render
+        SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, 255);
+        SDL_RenderClear(gRenderer);
+        renderBackground();
+
+//        renderDebug(gRenderer);
+
+        player->renderStaminaBar(gRenderer);
+        player->renderHealthPointBar(gRenderer);
+        player->render(gRenderer);
+//        Mix_FreeChunk(runSound);
+
+        boss->render(gRenderer);
+        boss->renderHealthBar(gRenderer);
+        if(gameState == GAME_OVER) renderGameOverMenu();
+
+        SDL_RenderPresent(gRenderer);
+        cerr << (boss->activeMeteors.size()) << " " << (boss->isMeteorActive) <<  '\n';
+//        cerr << (player->position.x) << " " << (player->position.y) << " " << (player->velocity.x) << " " << (player->stamina) <<  '\n';
+//        cerr << (player->position.x) << " " << (player->position.y) << '\n';
+//        debug(player->velocity);
+        SDL_Delay(16);
+    }
+}
 
 void gameloop() {
     GenerateLevel();
     Uint32 lastTime = SDL_GetTicks();
-    while (isRunning) {
+    while (!isLastLevel && isRunning) {
         Uint32 currentTime = SDL_GetTicks();
         float deltaTime = (currentTime - lastTime) / 1000.0;
         lastTime = currentTime;
@@ -970,10 +1364,9 @@ void gameloop() {
             levelCompleteTimer -= deltaTime;
             if(levelCompleteTimer <= 0) {
                 currentLevel++;
-                if(currentLevel > MAX_LEVEL) {
-                    // Hiển thị màn hình kết thúc game
-                    gameState = GAME_OVER;
-                    isEnd = 1;
+                if(currentLevel == MAX_LEVEL) {
+                    isLastLevel = 1;
+//                    isEnd = 1;
                 } else {
                     GenerateLevel();
                     levelCompleted = false;
@@ -1086,6 +1479,7 @@ void close() {
 //    SDL_DestroyTexture(gPlayerTexture);
 //    gPlayerTexture = nullptr;
     delete player;
+    delete boss;
     FOR(i, 0, LAYER_COUNT - 1) {
         SDL_DestroyTexture(bgTextures[i]);
         bgTextures[i] = nullptr;
@@ -1111,7 +1505,13 @@ int main(int argc, char* args[]) {
 
     // Vòng lặp game chính
     gameloop();
-
+//    isLastLevel = 1;
+    if(isLastLevel){
+        boss = new Boss(SCREEN_WIDTH/2, 445);
+        player->position = {playerX, playerY};
+        player->health = 100;
+        LastLevelLoop();
+    }
     close();
     return 0;
 }
