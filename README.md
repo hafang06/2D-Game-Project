@@ -17,6 +17,11 @@ Ngưỡng điểm xứng đáng: 8.5-9
 
 +Tính năng Stamina khi chạy của người chơi: Có một thanh năng lượng bên dưới thanh máu của người chơi, khi người chơi chạy, thanh năng lượng sẽ giảm, khi giảm về 0, người chơi không thể chạy được nữa mà chỉ có thể đi bộ, khi đi bộ năng lượng sẽ hồi từ từ
 
++Có màn đánh boss ở cuối màn chơi với 2 giai đoạn:
+
+  Giai đoạn 1: Boss sẽ liên tục di chuyển về phía người chơi và tấn công
+  Giai đoạn 2: Thay vì chỉ di chuyển đi bộ, boss bây giờ sẽ đôi khi dịch chuyển đến bên cạnh để tấn công người chơi
+
 Các nguồn tham khảo:
 
 + Tutorial SDL: https://lazyfoo.net/tutorials/SDL/index.php
